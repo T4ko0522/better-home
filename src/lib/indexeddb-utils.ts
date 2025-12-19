@@ -15,7 +15,6 @@ export const STORE_NAMES = {
   APP_SETTINGS: "app_settings",
   BACKGROUND_IMAGES: "background_images",
   BACKGROUND_SETTINGS: "background_settings",
-  SHORTCUTS: "shortcuts",
 } as const;
 
 /**
@@ -52,9 +51,6 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_NAMES.BACKGROUND_SETTINGS)) {
         db.createObjectStore(STORE_NAMES.BACKGROUND_SETTINGS);
-      }
-      if (!db.objectStoreNames.contains(STORE_NAMES.SHORTCUTS)) {
-        db.createObjectStore(STORE_NAMES.SHORTCUTS);
       }
     };
   });
