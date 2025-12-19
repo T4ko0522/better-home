@@ -484,7 +484,7 @@ export default function Home(): React.ReactElement {
         <header className="flex justify-center md:justify-end items-start p-6 gap-4">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="bg-black/30 hover:bg-black/40 backdrop-blur-sm">
+              <Button variant="outline" size="sm" className="bg-black/50 hover:bg-black/60 backdrop-blur-lg">
                 <ImagePlus className="size-4" />
                 背景画像
               </Button>
@@ -673,7 +673,7 @@ export default function Home(): React.ReactElement {
               <Button
                 variant="outline"
                 size="sm"
-                className="bg-black/30 hover:bg-black/40 backdrop-blur-sm"
+                className="bg-black/50 hover:bg-black/60 backdrop-blur-lg"
                 onClick={handleOpenSettings}
               >
                 <Settings className="size-4" />
@@ -891,7 +891,7 @@ export default function Home(): React.ReactElement {
           <Button
             variant="outline"
             size="sm"
-            className="bg-black/30 hover:bg-black/40 backdrop-blur-sm flex items-center gap-2 text-foreground"
+            className="bg-black/50 hover:bg-black/60 backdrop-blur-lg flex items-center gap-2 text-foreground"
             onClick={() =>
               (window.location.href = "https://mail.google.com/mail/u/0/#inbox")
             }
@@ -936,7 +936,7 @@ export default function Home(): React.ReactElement {
                   placeholder="検索またはドメイン..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 sm:pl-10 text-sm sm:text-base bg-black/30 backdrop-blur-md relative z-0 text-white placeholder:text-white"
+                  className="pl-9 sm:pl-10 text-sm sm:text-base bg-black/50 backdrop-blur-lg relative z-0 text-white placeholder:text-white"
                 />
               </div>
             </div>
