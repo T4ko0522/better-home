@@ -190,6 +190,37 @@ export default function Home(): React.ReactElement {
       return;
     }
 
+    // ファイルサイズチェック（バイト単位）
+    const fileSizeMB = file.size / (1024 * 1024);
+    const WARNING_SIZE_MB = 50;
+    const ERROR_SIZE_MB = 100;
+
+    // 100MB以上はエラー
+    if (fileSizeMB >= ERROR_SIZE_MB) {
+      alert(
+        `ファイルサイズが大きすぎます（${fileSizeMB.toFixed(1)}MB）。\n` +
+        `${ERROR_SIZE_MB}MB以下のファイルを選択してください。`
+      );
+      if (e.target) {
+        e.target.value = "";
+      }
+      return;
+    }
+
+    // 50MB以上は警告
+    if (fileSizeMB >= WARNING_SIZE_MB) {
+      const shouldContinue = confirm(
+        `ファイルサイズが大きいです（${fileSizeMB.toFixed(1)}MB）。\n` +
+        `アップロードに時間がかかる場合があります。続行しますか？`
+      );
+      if (!shouldContinue) {
+        if (e.target) {
+          e.target.value = "";
+        }
+        return;
+      }
+    }
+
     try {
       setIsUploading(true);
 
@@ -448,6 +479,9 @@ export default function Home(): React.ReactElement {
                   <label className="text-sm font-medium block mb-2">
                     画像・動画ファイルをアップロード
                   </label>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500 mb-2">
+                    ※ 注意: ファイルサイズは100MB以下を推奨します。50MB以上の場合、警告が表示されます。
+                  </p>
                   <div className="flex gap-2">
                     <input
                       type="file"
