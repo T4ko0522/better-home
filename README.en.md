@@ -39,6 +39,73 @@ A customizable new tab page that brings together beautiful background images, cl
 - **Font Color**: Change text color to white or black
 - **Data Persistence**: Save settings and background images using IndexedDB
 
+## 🎯 Usage
+
+### 📌 Setup
+
+How to set this page as your browser's new tab page:
+
+#### Brave
+1. Open the URL where this application is deployed
+2. Open browser settings (`brave://settings/?search=tab`)
+3. Open the "Appearance" section
+4. Change the "New tab page" setting
+5. Select "Custom web page" and enter this application's URL
+
+**Note**: Brave allows you to customize the new tab page without extensions.
+
+#### Chrome
+Chrome requires an extension. Follow these steps:
+
+1. Install an extension like [Custom New Tab](https://chromewebstore.google.com/detail/custom-new-tab/lfjnnkckddkopjfgmbcpdiolnmfobflj?hl=ja)
+2. Open the extension settings
+3. Configure it to use this application's URL
+
+#### Edge
+1. Open the URL where this application is deployed
+2. Open browser settings (`edge://settings/`)
+3. Open the "Appearance" or "Startup" section
+4. Change the "New tab page" setting
+5. Select "Custom web page" and enter this application's URL
+
+Alternatively, using an extension:
+- Install an extension like [Custom New Tab](https://chromewebstore.google.com/detail/custom-new-tab/lfjnnkckddkopjfgmbcpdiolnmfobflj?hl=ja)
+- Configure the extension to use this application's URL
+
+#### Firefox
+1. Open the URL where this application is deployed
+2. Open browser settings (`about:preferences`)
+3. Open the "Home" section
+4. Select "Custom URL" for "New windows and tabs"
+5. Enter this application's URL
+
+Alternatively, using an extension:
+- Install an extension like [New Tab Override](https://addons.mozilla.org/en-US/firefox/addon/new-tab-override/)
+- Configure the extension to use this application's URL
+
+#### Safari
+1. Open Safari settings
+2. Select the "General" tab
+3. Select "Homepage" for "New windows open with"
+4. Enter this application's URL
+
+### 💡 How to Use Features
+
+1. **Setting Background Images**
+   - Click the settings icon
+   - Select the "Background" tab
+   - Upload an image or enter a URL
+   - Crop the image if necessary
+
+2. **Show/Hide Widgets**
+   - Click the settings icon
+   - Select the "Display Settings" tab
+   - Toggle visibility of each widget
+
+3. **Search**
+   - Enter search terms in the search bar at the center of the page
+   - Press Enter or click the search button
+
 ## 🛠️ Tech Stack
 
 - **Framework**: [Next.js](https://nextjs.org/) 16
@@ -94,23 +161,6 @@ src/
     ├── image-utils.ts        # Image processing
     └── utils.ts              # General utilities
 ```
-
-## 🎯 Usage
-
-1. **Setting Background Images**
-   - Click the settings icon
-   - Select the "Background" tab
-   - Upload an image or enter a URL
-   - Crop the image if necessary
-
-2. **Show/Hide Widgets**
-   - Click the settings icon
-   - Select the "Display Settings" tab
-   - Toggle visibility of each widget
-
-3. **Search**
-   - Enter search terms in the search bar at the center of the page
-   - Press Enter or click the search button
 
 ## 📝 License
 
