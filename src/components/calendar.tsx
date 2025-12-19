@@ -238,7 +238,8 @@ export function Calendar(): React.ReactElement {
   return (
     <div className="bg-white/90 dark:bg-black/30 backdrop-blur-sm rounded-lg p-4 border border-border">
       <div className="text-lg font-semibold mb-3 text-foreground">
-        {year}年 {getMonthName(month)}
+        <span className="md:hidden">{year}/{month + 1}</span>
+        <span className="hidden md:inline">{year}年 {getMonthName(month)}</span>
       </div>
       <div className="grid grid-cols-7 gap-1 mb-2">
         {["日", "月", "火", "水", "木", "金", "土"].map((day, index) => (
@@ -275,7 +276,7 @@ export function Calendar(): React.ReactElement {
               key={index}
               className={`aspect-square flex flex-col items-center justify-center text-sm rounded ${
                 isToday
-                  ? "bg-primary text-primary-foreground font-bold"
+                  ? "md:bg-primary md:text-primary-foreground font-bold text-white calendar-today-glow"
                   : isHoliday || isSunday
                   ? "text-red-500"
                   : isSaturday
