@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import * as React from "react";
+import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { getItem, setItem, STORE_NAMES } from "@/lib/indexeddb-utils";
 
 /**
@@ -15,6 +16,8 @@ export interface AppSettings {
   showTrendingArticles: boolean;
   /** フォントの色（"white" | "black"） */
   fontColor: "white" | "black";
+  /** 天気の市町村名を表示するかどうか */
+  showWeatherLocation: boolean;
 }
 
 /**
@@ -30,17 +33,32 @@ export interface UseAppSettingsReturn {
 const STORAGE_KEY = "settings";
 
 /**
- * アプリケーション設定の管理を行うカスタムフック
- * IndexedDBに設定を保存し、管理する機能を提供
- *
- * @returns {UseAppSettingsReturn} アプリケーション設定管理に関する状態と関数
+ * アプリケーション設定のコンテキスト
  */
-export function useAppSettings(): UseAppSettingsReturn {
+const AppSettingsContext = createContext<UseAppSettingsReturn | undefined>(undefined);
+
+/**
+ * アプリケーション設定プロバイダーのプロパティ
+ */
+interface AppSettingsProviderProps {
+  /** 子コンポーネント */
+  children: ReactNode;
+}
+
+/**
+ * アプリケーション設定プロバイダーコンポーネント
+ * 設定をContextで管理し、すべての子コンポーネントで共有
+ *
+ * @param {AppSettingsProviderProps} props - プロバイダーのプロパティ
+ * @returns {React.ReactElement} プロバイダーコンポーネント
+ */
+export function AppSettingsProvider({ children }: AppSettingsProviderProps): React.ReactElement {
   const [settings, setSettings] = useState<AppSettings>({
     showWeather: true,
     showCalendar: true,
     showTrendingArticles: true,
     fontColor: "white",
+    showWeatherLocation: true,
   });
 
   // 初期化: IndexedDBからデータを読み込む
@@ -72,9 +90,13 @@ export function useAppSettings(): UseAppSettingsReturn {
             ((parsed as { fontColor: unknown }).fontColor === "white" ||
               (parsed as { fontColor: unknown }).fontColor === "black")
           ) {
+            // showWeatherLocationが存在しない場合はデフォルト値（true）を使用
+            const parsedSettings = parsed as Partial<AppSettings>;
+            if (typeof parsedSettings.showWeatherLocation !== "boolean") {
+              parsedSettings.showWeatherLocation = true;
+            }
             // IndexedDBからの初期化はuseEffectで行う必要がある
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setSettings(parsed as AppSettings);
+            setSettings(parsedSettings as AppSettings);
           }
         }
       } catch (error) {
@@ -100,9 +122,24 @@ export function useAppSettings(): UseAppSettingsReturn {
     }
   };
 
-  return {
-    settings,
-    updateSettings,
-  };
+  return React.createElement(
+    AppSettingsContext.Provider,
+    { value: { settings, updateSettings } },
+    children
+  );
+}
+
+/**
+ * アプリケーション設定の管理を行うカスタムフック
+ * Contextから設定を取得する
+ *
+ * @returns {UseAppSettingsReturn} アプリケーション設定管理に関する状態と関数
+ */
+export function useAppSettings(): UseAppSettingsReturn {
+  const context = useContext(AppSettingsContext);
+  if (context === undefined) {
+    throw new Error("useAppSettings must be used within AppSettingsProvider");
+  }
+  return context;
 }
 

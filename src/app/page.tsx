@@ -612,6 +612,21 @@ export default function Home(): React.ReactElement {
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
+                        id="showWeatherLocation"
+                        checked={appSettings.showWeatherLocation}
+                        onChange={(e) =>
+                          updateAppSettings({ showWeatherLocation: e.target.checked })
+                        }
+                        disabled={!appSettings.showWeather}
+                        className="size-4"
+                      />
+                      <label htmlFor="showWeatherLocation" className="text-sm">
+                        天気の市町村名を表示
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
                         id="showCalendar"
                         checked={appSettings.showCalendar}
                         onChange={(e) =>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { useAppSettings } from "@/hooks/useAppSettings";
 
 /**
  * 天気情報の型定義
@@ -45,6 +46,7 @@ export function Clock(): React.ReactElement {
   const [mounted, setMounted] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(weatherCache.data);
   const [weatherLoading, setWeatherLoading] = useState(!weatherCache.data && weatherCache.loading);
+  const { settings } = useAppSettings();
 
   useEffect(() => {
     // クライアントサイドでのみ実行（ハイドレーションエラーを防ぐ）
@@ -247,7 +249,8 @@ export function Clock(): React.ReactElement {
                   </div>
                 )}
                 <div className="text-xs text-white">
-                  {weather.description} - {weather.location}
+                  {weather.description}
+                  {settings.showWeatherLocation && ` - ${weather.location}`}
                 </div>
               </div>
             </div>
