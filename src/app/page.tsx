@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useBackgroundImages, getCachedBlobUrl } from "@/hooks/useBackgroundImages";
+import { useBackgroundImages, getCachedBlobUrl, getDataUrlFromBlobUrl } from "@/hooks/useBackgroundImages";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { Settings, ImagePlus, X, Search, Upload, Github, Twitter } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -190,6 +190,37 @@ export default function Home(): React.ReactElement {
       return;
     }
 
+    // ファイルサイズチェック（バイト単位）
+    const fileSizeMB = file.size / (1024 * 1024);
+    const WARNING_SIZE_MB = 50;
+    const ERROR_SIZE_MB = 100;
+
+    // 100MB以上はエラー
+    if (fileSizeMB >= ERROR_SIZE_MB) {
+      alert(
+        `ファイルサイズが大きすぎます（${fileSizeMB.toFixed(1)}MB）。\n` +
+        `${ERROR_SIZE_MB}MB以下のファイルを選択してください。`
+      );
+      if (e.target) {
+        e.target.value = "";
+      }
+      return;
+    }
+
+    // 50MB以上は警告
+    if (fileSizeMB >= WARNING_SIZE_MB) {
+      const shouldContinue = confirm(
+        `ファイルサイズが大きいです（${fileSizeMB.toFixed(1)}MB）。\n` +
+        `アップロードに時間がかかる場合があります。続行しますか？`
+      );
+      if (!shouldContinue) {
+        if (e.target) {
+          e.target.value = "";
+        }
+        return;
+      }
+    }
+
     try {
       setIsUploading(true);
 
@@ -293,10 +324,41 @@ export default function Home(): React.ReactElement {
 
   // 背景スタイルを構築
   const backgroundStyle: React.CSSProperties = {};
-  const isVideo = currentImage ? isVideoUrl(currentImage) : false;
+  // currentImageがBlob URLの場合は元のData URLを取得して判定
+  let isVideo = false;
+  if (currentImage) {
+    if (currentImage.startsWith("blob:")) {
+      const originalDataUrl = getDataUrlFromBlobUrl(currentImage);
+      if (originalDataUrl) {
+        isVideo = isVideoUrl(originalDataUrl);
+      } else {
+        // 元のData URLが見つからない場合はBlob URLで判定（フォールバック）
+        isVideo = isVideoUrl(currentImage);
+      }
+    } else {
+      isVideo = isVideoUrl(currentImage);
+    }
+  }
 
   // 現在の画像のサムネイルを取得
-  const currentImageData = images.find((img) => img.url === currentImage);
+  // currentImageがBlob URLの場合は、元のData URLを取得してから検索
+  let currentImageData: typeof images[0] | undefined;
+  if (currentImage) {
+    if (currentImage.startsWith("blob:")) {
+      // Blob URLの場合は元のData URLを取得して検索
+      const originalDataUrl = getDataUrlFromBlobUrl(currentImage);
+      if (originalDataUrl) {
+        currentImageData = images.find((img) => img.url === originalDataUrl);
+      }
+      // 見つからない場合はBlob URLで直接検索（フォールバック）
+      if (!currentImageData) {
+        currentImageData = images.find((img) => img.url === currentImage);
+      }
+    } else {
+      // Data URLまたは通常のURLの場合はそのまま検索
+      currentImageData = images.find((img) => img.url === currentImage);
+    }
+  }
   const currentThumbnail = currentImageData?.thumbnail;
 
   if (currentImage && isVideo && currentThumbnail) {
@@ -318,7 +380,7 @@ export default function Home(): React.ReactElement {
   // currentImageが変わったら動画の読み込み状態をリセット
   React.useEffect(() => {
     setIsVideoLoaded(false);
-  }, [currentImage]);
+  }, [currentImage, isVideo]);
 
   // バックグラウンド時に動画を停止する
   React.useEffect(() => {
@@ -362,7 +424,20 @@ export default function Home(): React.ReactElement {
           muted
           playsInline
           preload="auto"
-          onLoadedData={() => setIsVideoLoaded(true)}
+          onLoadedData={() => {
+            setIsVideoLoaded(true);
+          }}
+          onError={(e) => {
+            const video = e.currentTarget;
+            console.error("Video load error:", {
+              error: video.error,
+              code: video.error?.code,
+              message: video.error?.message,
+              src: currentImage,
+              networkState: video.networkState,
+              readyState: video.readyState,
+            });
+          }}
           style={{
             opacity: isVideoLoaded ? 1 : 0,
             transition: "opacity 0.3s ease-in-out",
@@ -404,6 +479,9 @@ export default function Home(): React.ReactElement {
                   <label className="text-sm font-medium block mb-2">
                     画像・動画ファイルをアップロード
                   </label>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500 mb-2">
+                    ※ 注意: ファイルサイズは100MB以下を推奨します。50MB以上の場合、警告が表示されます。
+                  </p>
                   <div className="flex gap-2">
                     <input
                       type="file"
@@ -462,8 +540,31 @@ export default function Home(): React.ReactElement {
                   <p className="text-sm font-medium">登録済みメディア</p>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {images.map((img) => {
-                      const isSelected = currentImage === img.url;
+                      // currentImageがBlob URLの場合は元のData URLに変換して比較
+                      let isSelected = false;
+                      if (currentImage) {
+                        if (currentImage.startsWith("blob:")) {
+                          const originalDataUrl = getDataUrlFromBlobUrl(currentImage);
+                          isSelected = originalDataUrl === img.url || currentImage === img.url;
+                        } else {
+                          isSelected = currentImage === img.url;
+                        }
+                      }
                       const isVideoItem = isVideoUrl(img.url);
+                      
+                      // 動画のサムネイルを取得（img.thumbnailがあればそれを使用、なければローカルストレージから取得）
+                      let thumbnailUrl = img.thumbnail;
+                      if (isVideoItem && !thumbnailUrl) {
+                        try {
+                          const cachedThumbnail = localStorage.getItem("current_thumbnail");
+                          if (cachedThumbnail) {
+                            thumbnailUrl = cachedThumbnail;
+                          }
+                        } catch (error) {
+                          console.error("Failed to get thumbnail from localStorage:", error);
+                        }
+                      }
+                      
                       return (
                         <div
                           key={img.id}
@@ -480,13 +581,27 @@ export default function Home(): React.ReactElement {
                             }`}
                           >
                             {isVideoItem ? (
-                              <video
-                                src={getThumbnailUrl(img.url)}
-                                className="w-full h-full object-cover"
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
+                              thumbnailUrl ? (
+                                <Image
+                                  src={thumbnailUrl}
+                                  alt="背景メディア"
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <video
+                                  src={getThumbnailUrl(img.url)}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                              )
                             ) : (
                               <Image
                                 src={getThumbnailUrl(img.url)}
