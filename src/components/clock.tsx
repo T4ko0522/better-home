@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import { Sun, Moon } from "lucide-react";
 import { useAppSettings } from "@/hooks/useAppSettings";
 
 /**
@@ -47,17 +47,6 @@ function getTimeOfDayIconSuffix(): string {
   return "d";
 }
 
-/**
- * アイコン名を時間帯に合わせて変更
- *
- * @param {string} icon - 元のアイコン名（例: "01d"）
- * @returns {string} 時間帯に合わせたアイコン名
- */
-function getTimeBasedIcon(icon: string): string {
-  const suffix = getTimeOfDayIconSuffix();
-  // 末尾の"d"または"n"を時間帯に合わせて変更
-  return icon.replace(/[dn]$/, suffix);
-}
 
 /**
  * 時計コンポーネントのprops
@@ -357,7 +346,11 @@ export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
       {!hideWeather && weatherLoading ? (
         <div className="mt-2">
           <div className="flex items-center gap-2">
-            <div className="size-8 bg-white/20 rounded" />
+            {getTimeOfDayIconSuffix() === "d" ? (
+              <Sun className="size-8 text-yellow-400" />
+            ) : (
+              <Moon className="size-8 text-blue-300" />
+            )}
             <div className="flex flex-col gap-1.5">
               <div className="h-4 w-12 bg-white/20 rounded" />
               <div className="h-3 w-32 bg-white/20 rounded" />
@@ -368,7 +361,11 @@ export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
             <div className="space-y-1">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <div className="size-4 bg-white/20 rounded" />
+                  {getTimeOfDayIconSuffix() === "d" ? (
+                    <Sun className="size-4 text-yellow-400" />
+                  ) : (
+                    <Moon className="size-4 text-blue-300" />
+                  )}
                   <div className="h-3 w-24 bg-white/20 rounded" />
                 </div>
               ))}
@@ -379,14 +376,11 @@ export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
         !hideWeather && weather && (
           <div className="mt-2">
             <div className="flex items-center gap-2">
-              <Image
-                src={`https://openweathermap.org/img/wn/${getTimeBasedIcon(weather.icon)}@2x.png`}
-                alt={weather.description}
-                width={32}
-                height={32}
-                className="size-8"
-                unoptimized
-              />
+              {getTimeOfDayIconSuffix() === "d" ? (
+                <Sun className="size-8 text-yellow-400" />
+              ) : (
+                <Moon className="size-8 text-blue-300" />
+              )}
               <div className="flex flex-col">
                 {weather.temperature !== null && (
                   <div className="text-sm font-medium text-white">
@@ -420,24 +414,24 @@ export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
               <div className="mt-2 pt-2 border-t border-white/20">
                 <div className="text-xs text-white/80 mb-1">今後の予報</div>
                 <div className="space-y-1">
-                  {weather.futureForecast.map((forecast, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 text-xs text-white"
-                    >
-                      <Image
-                        src={`https://openweathermap.org/img/wn/${forecast.icon}@2x.png`}
-                        alt={forecast.description}
-                        width={16}
-                        height={16}
-                        className="size-4"
-                        unoptimized
-                      />
-                      <span className="text-xs">
-                        {forecast.time}: {forecast.description}
-                      </span>
-                    </div>
-                  ))}
+                  {weather.futureForecast.map((forecast, index) => {
+                    const isDay = forecast.icon.endsWith("d");
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 text-xs text-white"
+                      >
+                        {isDay ? (
+                          <Sun className="size-4 text-yellow-400" />
+                        ) : (
+                          <Moon className="size-4 text-blue-300" />
+                        )}
+                        <span className="text-xs">
+                          {forecast.time}: {forecast.description}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
