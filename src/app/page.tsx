@@ -778,10 +778,10 @@ export default function Home(): React.ReactElement {
             </div>
           </form>
 
-          {/* スマホ: 天気とカレンダー（横並び、中央揃え） */}
-          <div className="md:hidden w-full flex flex-row items-center justify-center gap-4 mb-6">
-            {appSettings.showWeather && <Clock />}
-            {appSettings.showCalendar && <Calendar />}
+          {/* スマホ: 時計とカレンダー（縦並び、中央揃え） */}
+          <div className="md:hidden w-full flex flex-col items-center gap-4 mb-6">
+            <Clock hideWeather={true} />
+            {appSettings.showCalendar && <Calendar isMobile={true} />}
           </div>
 
           {/* スマホ: トレンド記事（中央揃え） */}

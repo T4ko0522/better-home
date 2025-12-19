@@ -60,9 +60,20 @@ function getTimeBasedIcon(icon: string): string {
 }
 
 /**
+ * 時計コンポーネントのprops
+ */
+interface ClockProps {
+  /**
+   * 天気を非表示にするかどうか
+   */
+  hideWeather?: boolean;
+}
+
+/**
  * 時計コンポーネント
  * 日本時間（JST）で現在時刻と天気を表示
  *
+ * @param {ClockProps} props - コンポーネントのprops
  * @returns {React.ReactElement} 時計コンポーネント
  */
 // グローバルな天気データキャッシュ（二重fetchを防ぐ）
@@ -135,7 +146,7 @@ const saveWeatherToStorage = (data: WeatherData): void => {
   }
 };
 
-export function Clock(): React.ReactElement {
+export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
   const [time, setTime] = useState<string>("00:00:00");
   const [mounted, setMounted] = useState(false);
   // localStorageからキャッシュを読み込む
@@ -330,7 +341,7 @@ export function Clock(): React.ReactElement {
   if (!mounted) {
     return (
       <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-border">
-        <div className="text-4xl font-bold text-white tabular-nums w-[200px] text-left">
+        <div className={`text-4xl font-bold text-white tabular-nums ${hideWeather ? "w-full text-center" : "w-[200px] text-left"}`}>
           00:00:00
         </div>
         <div className="text-sm text-white mt-1">読み込み中...</div>
@@ -340,21 +351,32 @@ export function Clock(): React.ReactElement {
 
   return (
     <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2 border border-border">
-      <div className="text-4xl font-bold text-white tabular-nums w-[200px] text-left">
+      <div className={`text-4xl font-bold text-white tabular-nums ${hideWeather ? "w-full text-center" : "w-[200px] text-left"}`}>
         {time}
       </div>
-      {weatherLoading ? (
+      {!hideWeather && weatherLoading ? (
         <div className="mt-2">
           <div className="flex items-center gap-2">
-            <div className="size-8 bg-white/20 rounded animate-pulse" />
+            <div className="size-8 bg-white/20 rounded" />
             <div className="flex flex-col gap-1.5">
-              <div className="h-4 w-12 bg-white/20 rounded animate-pulse" />
-              <div className="h-3 w-32 bg-white/20 rounded animate-pulse" />
+              <div className="h-4 w-12 bg-white/20 rounded" />
+              <div className="h-3 w-32 bg-white/20 rounded" />
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-white/20">
+            <div className="text-xs text-white/80 mb-1">今後の予報</div>
+            <div className="space-y-1">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="size-4 bg-white/20 rounded" />
+                  <div className="h-3 w-24 bg-white/20 rounded" />
+                </div>
+              ))}
             </div>
           </div>
         </div>
       ) : (
-        weather && (
+        !hideWeather && weather && (
           <div className="mt-2">
             <div className="flex items-center gap-2">
               <Image

@@ -3,16 +3,20 @@
 import { useMemo, useState, useEffect } from "react";
 
 /**
- * カレンダーコンポーネント
- * 日本時間（JST）で現在の日付とカレンダーを表示
- *
- * @returns {React.ReactElement} カレンダーコンポーネント
- */
-/**
  * 祝日データの型定義
  */
 interface Holidays {
   [date: string]: string;
+}
+
+/**
+ * カレンダーコンポーネントのprops
+ */
+interface CalendarProps {
+  /**
+   * スマホ表示用の中央揃えにするかどうか
+   */
+  isMobile?: boolean;
 }
 
 // グローバルな祝日データキャッシュ（二重fetchを防ぐ）
@@ -30,16 +34,16 @@ const holidaysCache: {
  * カレンダーコンポーネント
  * 日本時間（JST）で現在の日付とカレンダーを表示
  *
+ * @param {CalendarProps} props - コンポーネントのprops
  * @returns {React.ReactElement} カレンダーコンポーネント
  */
-export function Calendar(): React.ReactElement {
+export function Calendar({ isMobile = false }: CalendarProps): React.ReactElement {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
   const [holidays, setHolidays] = useState<Holidays>(holidaysCache.data);
 
   // クライアントサイドでのみ実行（ハイドレーションエラーを防ぐ）
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     setCurrentTime(new Date());
 
@@ -236,8 +240,8 @@ export function Calendar(): React.ReactElement {
   }
 
   return (
-    <div className="bg-white/90 dark:bg-black/30 backdrop-blur-sm rounded-lg p-4 border border-border">
-      <div className="text-lg font-semibold mb-3 text-foreground">
+    <div className={`bg-white/90 dark:bg-black/30 backdrop-blur-sm rounded-lg border border-border ${isMobile ? "p-2 w-full max-w-xs mx-auto" : "p-4"}`}>
+      <div className={`text-lg font-semibold mb-3 text-foreground ${isMobile ? "text-center" : ""}`}>
         <span className="md:hidden">{year}/{month + 1}</span>
         <span className="hidden md:inline">{year}年 {getMonthName(month)}</span>
       </div>
@@ -274,7 +278,9 @@ export function Calendar(): React.ReactElement {
           return (
             <div
               key={index}
-              className={`aspect-square flex flex-col items-center justify-center text-sm rounded ${
+              className={`aspect-square flex flex-col items-center justify-center rounded ${
+                isMobile ? "text-xs" : "text-sm"
+              } ${
                 isToday
                   ? "md:bg-primary md:text-primary-foreground font-bold text-white calendar-today-glow"
                   : isHoliday || isSunday
@@ -284,10 +290,10 @@ export function Calendar(): React.ReactElement {
                   : "text-foreground"
               }`}
             >
-              <span>{day}</span>
+              <span className="text-center">{day}</span>
               {isHoliday && (
                 <span
-                  className={`text-[8px] leading-tight mt-0.5 ${
+                  className={`${isMobile ? "text-[7px]" : "text-[8px]"} leading-tight mt-0.5 text-center ${
                     isToday ? "text-red-500" : ""
                   }`}
                 >
