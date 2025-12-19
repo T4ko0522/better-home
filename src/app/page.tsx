@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type React from "react";
+import * as React from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useBackgroundImages } from "@/hooks/useBackgroundImages";
+import { useBackgroundImages, getCachedBlobUrl } from "@/hooks/useBackgroundImages";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { Settings, ImagePlus, X, Search, Upload, Github, Twitter } from "lucide-react";
-import { fileToDataUrl } from "@/lib/image-utils";
+import { fileToDataUrl, generateVideoThumbnail } from "@/lib/image-utils";
 import { ImageCropper } from "@/components/image-cropper";
 import { Clock } from "@/components/clock";
 import { Calendar } from "@/components/calendar";
@@ -35,9 +35,42 @@ export default function Home(): React.ReactElement {
   const [settingsShuffle, setSettingsShuffle] = useState(true);
   const [settingsInterval, setSettingsInterval] = useState(5);
   const [settingsShowOverlay, setSettingsShowOverlay] = useState(true);
+  const [settingsChangeByTime, setSettingsChangeByTime] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImageSrc, setSelectedImageSrc] = useState<string>("");
+  const [thumbnailCache, setThumbnailCache] = useState<Map<string, string>>(new Map());
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+
+  /**
+   * サムネイル用のBlob URLを取得（キャッシュ付き）
+   *
+   * @param {string} url - メディアURL
+   * @returns {string} キャッシュされたBlob URLまたは元のURL
+   */
+  const getThumbnailUrl = (url: string): string => {
+    // 既にBlob URLの場合はそのまま返す
+    if (url.startsWith("blob:")) {
+      return url;
+    }
+    
+    // キャッシュから取得
+    if (thumbnailCache.has(url)) {
+      return thumbnailCache.get(url)!;
+    }
+    
+    // Data URLの場合はバックグラウンドでBlob URLに変換
+    if (url.startsWith("data:")) {
+      getCachedBlobUrl(url).then((blobUrl) => {
+        setThumbnailCache((prev) => new Map(prev).set(url, blobUrl));
+      }).catch(() => {
+        // エラー時は何もしない
+      });
+    }
+    
+    // キャッシュがない場合は元のURLを返す
+    return url;
+  };
 
   const {
     images,
@@ -121,27 +154,36 @@ export default function Home(): React.ReactElement {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 画像ファイルかチェック
-    if (!file.type.startsWith("image/")) {
-      alert("画像ファイルを選択してください");
-      return;
-    }
-
-    // ファイルサイズチェック（10MB制限）
-    if (file.size > 10 * 1024 * 1024) {
-      alert("ファイルサイズは10MB以下にしてください");
+    // 画像または動画ファイルかチェック
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    if (!isImage && !isVideo) {
+      alert("画像または動画ファイルを選択してください");
       return;
     }
 
     try {
-      // 画像をData URLに変換してトリミングモーダルを表示
-      const dataUrl = await fileToDataUrl(file);
-      setSelectedImageSrc(dataUrl);
-      setCropperOpen(true);
+      setIsUploading(true);
+
+      // 動画の場合は元ファイルをそのまま保存
+      if (isVideo) {
+        // 1. サムネイルを生成（すぐに背景として表示するため）
+        const thumbnail = await generateVideoThumbnail(file);
+
+        // 2. 元ファイルをData URLに変換して追加
+        const videoDataUrl = await fileToDataUrl(file);
+        addImage(videoDataUrl, thumbnail);
+      } else {
+        // 画像の場合はトリミングモーダルを表示
+        const dataUrl = await fileToDataUrl(file);
+        setSelectedImageSrc(dataUrl);
+        setCropperOpen(true);
+      }
     } catch (error) {
-      console.error("Failed to read file:", error);
-      alert("画像の読み込みに失敗しました");
+      console.error("Failed to process file:", error);
+      alert("ファイルの処理に失敗しました");
     } finally {
+      setIsUploading(false);
       // ファイル入力をリセット
       if (e.target) {
         e.target.value = "";
@@ -168,18 +210,6 @@ export default function Home(): React.ReactElement {
     }
   };
 
-
-  /**
-   * 背景画像の設定を保存する
-   */
-  const handleSaveSettings = (): void => {
-    updateSettings({
-      shuffle: settingsShuffle,
-      changeInterval: settingsInterval,
-      showOverlay: settingsShowOverlay,
-    });
-  };
-
   /**
    * 設定ダイアログを開いたときに現在の設定を反映する
    */
@@ -187,17 +217,40 @@ export default function Home(): React.ReactElement {
     setSettingsShuffle(settings.shuffle);
     setSettingsInterval(settings.changeInterval);
     setSettingsShowOverlay(settings.showOverlay);
+    setSettingsChangeByTime(settings.changeByTime);
   };
 
   /**
-   * 画像URLを表示用に短縮する
+   * URLが動画かどうかを判定する
    *
-   * @param {string} url - 画像URL
+   * @param {string} url - 判定するURL
+   * @returns {boolean} 動画の場合はtrue
+   */
+  const isVideoUrl = (url: string): boolean => {
+    if (url.startsWith("data:video/")) {
+      return true;
+    }
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname.toLowerCase();
+      return /\.(mp4|mov|webm|avi|mkv|ogg|ogv|flv|wmv)$/i.test(pathname);
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * メディアURLを表示用に短縮する
+   *
+   * @param {string} url - メディアURL
    * @returns {string} 短縮された表示用URL
    */
   const getDisplayUrl = (url: string): string => {
-    // Data URLの場合は「アップロード画像」と表示
+    // Data URLの場合は「アップロードメディア」と表示
     if (url.startsWith("data:")) {
+      if (url.startsWith("data:video/")) {
+        return "アップロード動画";
+      }
       return "アップロード画像";
     }
     // URLの場合はドメイン名を抽出
@@ -212,24 +265,58 @@ export default function Home(): React.ReactElement {
 
   // 背景スタイルを構築
   const backgroundStyle: React.CSSProperties = {};
-  if (currentImage) {
+  const isVideo = currentImage ? isVideoUrl(currentImage) : false;
+
+  // 現在の画像のサムネイルを取得
+  const currentImageData = images.find((img) => img.url === currentImage);
+  const currentThumbnail = currentImageData?.thumbnail;
+
+  if (currentImage && isVideo && currentThumbnail) {
+    // 動画の場合は常にサムネイルを背景に表示（ブラックアウト防止）
+    backgroundStyle.backgroundImage = `url(${currentThumbnail})`;
+    backgroundStyle.backgroundSize = "cover";
+    backgroundStyle.backgroundPosition = "center";
+    backgroundStyle.backgroundRepeat = "no-repeat";
+  } else if (currentImage && !isVideo) {
+    // 画像の場合
     backgroundStyle.backgroundImage = `url(${currentImage})`;
     backgroundStyle.backgroundSize = "cover";
     backgroundStyle.backgroundPosition = "center";
     backgroundStyle.backgroundRepeat = "no-repeat";
-  } else {
-    backgroundStyle.backgroundImage =
-      "linear-gradient(to bottom, #1e293b, #0f172a)";
+  } else if (!currentImage) {
+    backgroundStyle.backgroundColor = "#000000";
   }
+
+  // currentImageが変わったら動画の読み込み状態をリセット
+  React.useEffect(() => {
+    setIsVideoLoaded(false);
+  }, [currentImage]);
 
   return (
     <div
       className="min-h-screen w-full relative bg-background"
       style={backgroundStyle}
     >
-      {/* オーバーレイ（背景画像がある場合かつ設定で有効な場合のみ表示） */}
+      {/* 背景動画 */}
+      {currentImage && isVideo && (
+        <video
+          className="absolute inset-0 w-full h-full object-cover z-0"
+          src={currentImage}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          onLoadedData={() => setIsVideoLoaded(true)}
+          style={{
+            opacity: isVideoLoaded ? 1 : 0,
+            transition: "opacity 0.3s ease-in-out",
+          }}
+        />
+      )}
+      {/* オーバーレイ（背景メディアがある場合かつ設定で有効な場合のみ表示） */}
       {currentImage && settings.showOverlay && (
-        <div className="absolute inset-0 bg-background/20 dark:bg-background/40" />
+        <div className="absolute inset-0 bg-background/20 dark:bg-background/40 z-1" />
       )}
 
       {/* メインコンテンツ */}
@@ -251,21 +338,21 @@ export default function Home(): React.ReactElement {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>背景画像を追加</DialogTitle>
+                <DialogTitle>背景メディアを追加</DialogTitle>
                 <DialogDescription>
-                  画像ファイルをアップロードするか、URLを入力してください
+                  画像・動画ファイルをアップロードするか、URLを入力してください
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 {/* ファイルアップロード */}
                 <div>
                   <label className="text-sm font-medium block mb-2">
-                    画像ファイルをアップロード
+                    画像・動画ファイルをアップロード
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,video/*"
                       onChange={handleFileSelect}
                       disabled={isUploading}
                       className="hidden"
@@ -290,18 +377,18 @@ export default function Home(): React.ReactElement {
                     </label>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    JPEG, PNG, GIF形式、最大10MB
+                    様々な画像、動画形式に対応
                   </p>
                 </div>
 
                 {/* URL入力 */}
                 <div>
                   <label className="text-sm font-medium block mb-2">
-                    または画像URLを入力
+                    または画像・動画URLを入力
                   </label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="画像URLを入力"
+                      placeholder="画像・動画URLを入力"
                       value={imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
                       onKeyDown={(e) => {
@@ -316,10 +403,11 @@ export default function Home(): React.ReactElement {
               </div>
               {images.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <p className="text-sm font-medium">登録済み画像</p>
+                  <p className="text-sm font-medium">登録済みメディア</p>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {images.map((img) => {
                       const isSelected = currentImage === img.url;
+                      const isVideoItem = isVideoUrl(img.url);
                       return (
                         <div
                           key={img.id}
@@ -335,16 +423,27 @@ export default function Home(): React.ReactElement {
                               isSelected ? "ring-2 ring-blue-500" : ""
                             }`}
                           >
-                            <Image
-                              src={img.url}
-                              alt="背景画像"
-                              fill
-                              className="object-cover"
-                              unoptimized
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                              }}
-                            />
+                            {isVideoItem ? (
+                              <video
+                                src={getThumbnailUrl(img.url)}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            ) : (
+                              <Image
+                                src={getThumbnailUrl(img.url)}
+                                alt="背景メディア"
+                                fill
+                                className="object-cover"
+                                unoptimized
+                                loading="lazy"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p
@@ -402,27 +501,34 @@ export default function Home(): React.ReactElement {
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        id="shuffle"
-                        checked={settingsShuffle}
-                        onChange={(e) => setSettingsShuffle(e.target.checked)}
+                        id="changeByTime"
+                        checked={settingsChangeByTime}
+                        onChange={(e) => {
+                          const value = e.target.checked;
+                          setSettingsChangeByTime(value);
+                          updateSettings({ changeByTime: value });
+                        }}
                         className="size-4"
                       />
-                      <label htmlFor="shuffle" className="text-sm">
-                        ランダムにシャッフル
+                      <label htmlFor="changeByTime" className="text-sm">
+                        画像を時間で変更する
                       </label>
                     </div>
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        id="showOverlay"
-                        checked={settingsShowOverlay}
-                        onChange={(e) =>
-                          setSettingsShowOverlay(e.target.checked)
-                        }
+                        id="shuffle"
+                        checked={settingsShuffle}
+                        onChange={(e) => {
+                          const value = e.target.checked;
+                          setSettingsShuffle(value);
+                          updateSettings({ shuffle: value });
+                        }}
+                        disabled={!settingsChangeByTime}
                         className="size-4"
                       />
-                      <label htmlFor="showOverlay" className="text-sm">
-                        背景画像の上にオーバーレイを表示
+                      <label htmlFor="shuffle" className="text-sm">
+                        ランダムにシャッフル
                       </label>
                     </div>
                     <div>
@@ -434,10 +540,29 @@ export default function Home(): React.ReactElement {
                         type="number"
                         min="1"
                         value={settingsInterval}
-                        onChange={(e) =>
-                          setSettingsInterval(Number(e.target.value))
-                        }
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          setSettingsInterval(value);
+                          updateSettings({ changeInterval: value });
+                        }}
+                        disabled={!settingsChangeByTime}
                       />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="showOverlay"
+                        checked={settingsShowOverlay}
+                        onChange={(e) => {
+                          const value = e.target.checked;
+                          setSettingsShowOverlay(value);
+                          updateSettings({ showOverlay: value });
+                        }}
+                        className="size-4"
+                      />
+                      <label htmlFor="showOverlay" className="text-sm">
+                        背景画像の上にオーバーレイを表示
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -563,7 +688,7 @@ export default function Home(): React.ReactElement {
                 />
                 <Input
                   type="text"
-                  placeholder="検索..."
+                  placeholder="検索またはドメイン..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-black/30 backdrop-blur-sm relative z-0 text-white placeholder:text-white"
