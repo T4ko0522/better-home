@@ -25,6 +25,41 @@ interface WeatherData {
 }
 
 /**
+ * 時間帯に応じてアイコンの末尾を取得
+ * day: 6:00~17:59 → "d"（day）
+ * night: 18:00~5:59 → "n"（night）
+ *
+ * @returns {string} アイコンの末尾（"d"または"n"）
+ */
+function getTimeOfDayIconSuffix(): string {
+  const now = new Date();
+  // 日本時間（JST）で取得
+  const jstTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" })
+  );
+  const hours = jstTime.getHours();
+
+  // night: 18:00~5:59
+  if (hours >= 18 || hours < 6) {
+    return "n";
+  }
+  // day: 6:00~17:59
+  return "d";
+}
+
+/**
+ * アイコン名を時間帯に合わせて変更
+ *
+ * @param {string} icon - 元のアイコン名（例: "01d"）
+ * @returns {string} 時間帯に合わせたアイコン名
+ */
+function getTimeBasedIcon(icon: string): string {
+  const suffix = getTimeOfDayIconSuffix();
+  // 末尾の"d"または"n"を時間帯に合わせて変更
+  return icon.replace(/[dn]$/, suffix);
+}
+
+/**
  * 時計コンポーネント
  * 日本時間（JST）で現在時刻と天気を表示
  *
@@ -242,7 +277,7 @@ export function Clock(): React.ReactElement {
           <div className="mt-2">
             <div className="flex items-center gap-2">
               <Image
-                src={`https://openweathermap.org/img/wn/${weather.icon}@2x.png`}
+                src={`https://openweathermap.org/img/wn/${getTimeBasedIcon(weather.icon)}@2x.png`}
                 alt={weather.description}
                 width={32}
                 height={32}
