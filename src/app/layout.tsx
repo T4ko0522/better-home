@@ -14,11 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Home",
-  description: "ホームページ",
-  icons: {
-    icon: "/favicon.ico",
-  },
+  title: "Better Tab",
+  description: "Customized New Tab",
 };
 
 export default function RootLayout({
