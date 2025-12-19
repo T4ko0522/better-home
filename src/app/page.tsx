@@ -360,7 +360,7 @@ export default function Home(): React.ReactElement {
                 背景画像
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>背景メディアを追加</DialogTitle>
                 <DialogDescription>
@@ -418,6 +418,7 @@ export default function Home(): React.ReactElement {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleAddImage();
                       }}
+                      autoFocus={false}
                     />
                     <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
                       追加
