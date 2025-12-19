@@ -5,6 +5,11 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 import { getItem, setItem, STORE_NAMES } from "@/lib/indexeddb-utils";
 
 /**
+ * 検索エンジンの種類
+ */
+export type SearchEngine = "google" | "bing" | "duckduckgo" | "yahoo" | "brave";
+
+/**
  * アプリケーション設定の型定義
  */
 export interface AppSettings {
@@ -18,6 +23,8 @@ export interface AppSettings {
   fontColor: "white" | "black";
   /** 天気の市町村名を表示するかどうか */
   showWeatherLocation: boolean;
+  /** 使用する検索エンジン */
+  searchEngine: SearchEngine;
 }
 
 /**
@@ -59,6 +66,7 @@ export function AppSettingsProvider({ children }: AppSettingsProviderProps): Rea
     showTrendingArticles: true,
     fontColor: "white",
     showWeatherLocation: true,
+    searchEngine: "google",
   });
 
   // 初期化: IndexedDBからデータを読み込む
@@ -94,6 +102,15 @@ export function AppSettingsProvider({ children }: AppSettingsProviderProps): Rea
             const parsedSettings = parsed as Partial<AppSettings>;
             if (typeof parsedSettings.showWeatherLocation !== "boolean") {
               parsedSettings.showWeatherLocation = true;
+            }
+            // searchEngineが存在しない場合はデフォルト値（"google"）を使用
+            if (
+              typeof parsedSettings.searchEngine !== "string" ||
+              !["google", "bing", "duckduckgo", "yahoo", "brave"].includes(
+                parsedSettings.searchEngine
+              )
+            ) {
+              parsedSettings.searchEngine = "google";
             }
             // IndexedDBからの初期化はuseEffectで行う必要がある
             setSettings(parsedSettings as AppSettings);

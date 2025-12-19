@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useBackgroundImages, getCachedBlobUrl, getDataUrlFromBlobUrl } from "@/hooks/useBackgroundImages";
-import { useAppSettings } from "@/hooks/useAppSettings";
+import { useAppSettings, type SearchEngine } from "@/hooks/useAppSettings";
 import { Settings, ImagePlus, X, Search, Upload, Github, Twitter } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fileToDataUrl, generateVideoThumbnail } from "@/lib/image-utils";
@@ -122,8 +122,33 @@ export default function Home(): React.ReactElement {
    * @param {React.FormEvent<HTMLFormElement>} e - フォームイベント
    */
   /**
+   * 検索エンジンに応じた検索URLを生成する
+   *
+   * @param {string} query - 検索クエリ
+   * @param {SearchEngine} searchEngine - 使用する検索エンジン
+   * @returns {string} 検索URL
+   */
+  const getSearchUrl = (query: string, searchEngine: SearchEngine): string => {
+    const encodedQuery = encodeURIComponent(query);
+    switch (searchEngine) {
+      case "google":
+        return `https://www.google.com/search?q=${encodedQuery}`;
+      case "bing":
+        return `https://www.bing.com/search?q=${encodedQuery}`;
+      case "duckduckgo":
+        return `https://duckduckgo.com/?q=${encodedQuery}`;
+      case "yahoo":
+        return `https://search.yahoo.com/search?p=${encodedQuery}`;
+      case "brave":
+        return `https://search.brave.com/search?q=${encodedQuery}`;
+      default:
+        return `https://www.google.com/search?q=${encodedQuery}`;
+    }
+  };
+
+  /**
    * 検索を実行する
-   * URLの場合は直接移動、それ以外はGoogle検索
+   * URLの場合は直接移動、それ以外は設定された検索エンジンで検索
    *
    * @param {React.FormEvent<HTMLFormElement>} e - フォームイベント
    */
@@ -152,13 +177,11 @@ export default function Home(): React.ReactElement {
         return;
       }
     } catch {
-      // URLとして解析できない場合はGoogle検索
+      // URLとして解析できない場合は検索エンジンで検索
     }
 
-    // URLでない場合はGoogle検索
-    window.location.href = `https://www.google.com/search?q=${encodeURIComponent(
-      query
-    )}`;
+    // URLでない場合は設定された検索エンジンで検索
+    window.location.href = getSearchUrl(query, appSettings.searchEngine);
   };
 
   /**
@@ -733,6 +756,32 @@ export default function Home(): React.ReactElement {
                         <label htmlFor="showTrendingArticles" className="text-sm">
                           トレンド記事を表示
                         </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">検索設定</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="searchEngine" className="text-sm block mb-2">
+                          検索エンジン
+                        </label>
+                        <select
+                          id="searchEngine"
+                          value={appSettings.searchEngine}
+                          onChange={(e) =>
+                            updateAppSettings({
+                              searchEngine: e.target.value as SearchEngine,
+                            })
+                          }
+                          className="w-full px-3 py-2 text-sm border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="google">Google</option>
+                          <option value="bing">Bing</option>
+                          <option value="duckduckgo">DuckDuckGo</option>
+                          <option value="yahoo">Yahoo</option>
+                          <option value="brave">Brave Search</option>
+                        </select>
                       </div>
                     </div>
                   </div>
