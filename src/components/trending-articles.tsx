@@ -135,10 +135,34 @@ export function TrendingArticles(): React.ReactElement {
     return <div />;
   }
 
+  // スケルトンUIを表示
   if (loading) {
     return (
-      <div className="fixed bottom-6 right-6 w-80 max-h-96 bg-black/30 backdrop-blur-sm rounded-lg p-4 border border-border overflow-y-auto">
-        <div className="text-sm text-foreground">読み込み中...</div>
+      <div className="md:fixed md:bottom-6 md:right-6 w-full md:w-80 bg-black/30 backdrop-blur-sm rounded-lg p-4 border border-border z-20">
+        <div className="mb-4">
+          <div className="h-6 w-32 bg-white/20 rounded animate-pulse" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-black/20 rounded-lg p-3 border border-border/50"
+            >
+              <div className="flex items-start gap-2 mb-2">
+                <div className="size-4 bg-white/20 rounded animate-pulse shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-white/20 rounded animate-pulse" />
+                  <div className="h-4 bg-white/20 rounded animate-pulse w-3/4" />
+                </div>
+                <div className="size-4 bg-white/20 rounded animate-pulse shrink-0 mt-0.5" />
+              </div>
+              <div className="flex gap-1 mt-2">
+                <div className="h-5 w-16 bg-white/20 rounded animate-pulse" />
+                <div className="h-5 w-20 bg-white/20 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -152,13 +176,13 @@ export function TrendingArticles(): React.ReactElement {
 
   return (
     <div
-      className={`md:fixed md:bottom-6 md:right-6 w-full md:w-80 bg-black/30 backdrop-blur-sm rounded-lg p-4 border border-border transition-all duration-300 z-20 overflow-y-auto scrollbar-hide ${
+      className={`md:fixed md:bottom-6 md:right-6 w-full md:w-80 bg-black/30 backdrop-blur-sm rounded-lg p-4 border border-border z-20 overflow-y-auto scrollbar-hide ${
         expanded ? "max-h-[600px]" : "max-h-96"
       }`}
     >
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+        className="w-full flex items-center justify-between mb-4 hover:opacity-80"
       >
         <h3 className="text-lg font-semibold text-foreground">トレンド記事</h3>
         {hasMore && (
@@ -184,7 +208,7 @@ export function TrendingArticles(): React.ReactElement {
             href={article.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-black/20 hover:bg-black/40 rounded-lg p-3 transition-colors border border-border/50 cursor-pointer group block"
+            className="bg-black/20 hover:bg-black/40 rounded-lg p-3 border border-border/50 cursor-pointer group block"
           >
             <div className="flex items-start gap-2 mb-2">
               <div className="mt-0.5 shrink-0 text-foreground">

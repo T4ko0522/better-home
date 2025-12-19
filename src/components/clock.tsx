@@ -17,6 +17,10 @@ interface WeatherData {
     icon: string;
     precipitation?: string;
   }>;
+  warnings?: Array<{
+    type: string;
+    status: string;
+  }>;
 }
 
 /**
@@ -44,7 +48,6 @@ export function Clock(): React.ReactElement {
 
   useEffect(() => {
     // クライアントサイドでのみ実行（ハイドレーションエラーを防ぐ）
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
 
     /**
@@ -216,11 +219,14 @@ export function Clock(): React.ReactElement {
         {time}
       </div>
       {weatherLoading ? (
-        <div className="mt-2 flex items-center gap-2">
-          <div className="size-8 flex items-center justify-center">
-            <div className="size-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <div className="size-8 bg-white/20 rounded animate-pulse" />
+            <div className="flex flex-col gap-1.5">
+              <div className="h-4 w-12 bg-white/20 rounded animate-pulse" />
+              <div className="h-3 w-32 bg-white/20 rounded animate-pulse" />
+            </div>
           </div>
-          <div className="text-xs text-white">天気情報を取得中...</div>
         </div>
       ) : (
         weather && (
@@ -245,6 +251,23 @@ export function Clock(): React.ReactElement {
                 </div>
               </div>
             </div>
+            {weather.warnings && weather.warnings.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-white/20">
+                <div className="text-xs text-red-400 font-semibold mb-1">
+                  ⚠ 警報・注意報
+                </div>
+                <div className="space-y-1">
+                  {weather.warnings.map((warning, index) => (
+                    <div
+                      key={index}
+                      className="text-xs text-red-300 bg-red-500/20 rounded px-2 py-1"
+                    >
+                      {warning.type}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {weather.futureForecast && weather.futureForecast.length > 0 && (
               <div className="mt-2 pt-2 border-t border-white/20">
                 <div className="text-xs text-white/80 mb-1">今後の予報</div>

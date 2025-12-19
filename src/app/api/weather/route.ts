@@ -14,6 +14,47 @@ export interface WeatherData {
     icon: string;
     precipitation?: string;
   }>;
+  warnings?: Array<{
+    type: string;
+    status: string;
+  }>;
+}
+
+/**
+ * 天気コードから天気の説明を取得
+ *
+ * @param {string} weatherCode - 天気コード
+ * @returns {string} 天気の説明
+ */
+function getWeatherDescription(weatherCode: string): string {
+  const code = parseInt(weatherCode, 10);
+  if (isNaN(code)) {
+    return "晴れ";
+  }
+
+  // 気象庁の天気コード分類
+  // 1xx: 晴れ
+  if (code >= 100 && code < 200) {
+    return "晴れ";
+  }
+  // 2xx: 曇り
+  if (code >= 200 && code < 300) {
+    // 212, 213は雨
+    if (code === 212 || code === 213) {
+      return "雨";
+    }
+    return "曇り";
+  }
+  // 3xx: 雨
+  if (code >= 300 && code < 400) {
+    return "雨";
+  }
+  // 4xx: 雪
+  if (code >= 400 && code < 500) {
+    return "雪";
+  }
+
+  return "晴れ";
 }
 
 /**
@@ -23,20 +64,59 @@ export interface WeatherData {
  * @returns {string} アイコン名
  */
 function getWeatherIcon(weatherCode: string): string {
-  // 気象庁の天気コードをアイコンに変換
-  if (weatherCode.includes("100") || weatherCode.includes("晴")) {
+  const code = parseInt(weatherCode, 10);
+  if (isNaN(code)) {
     return "01d";
   }
-  if (weatherCode.includes("200") || weatherCode.includes("曇")) {
+
+  // 気象庁の天気コード分類
+  // 1xx: 晴れ
+  if (code >= 100 && code < 200) {
+    return "01d";
+  }
+  // 2xx: 曇り
+  if (code >= 200 && code < 300) {
+    // 212, 213は雨
+    if (code === 212 || code === 213) {
+      return "10d";
+    }
     return "02d";
   }
-  if (weatherCode.includes("300") || weatherCode.includes("雨")) {
+  // 3xx: 雨
+  if (code >= 300 && code < 400) {
     return "10d";
   }
-  if (weatherCode.includes("400") || weatherCode.includes("雪")) {
+  // 4xx: 雪
+  if (code >= 400 && code < 500) {
     return "13d";
   }
+
   return "01d";
+}
+
+/**
+ * 日付を「今日」「明日」「明後日」などの表示に変換
+ *
+ * @param {Date} date - 日付
+ * @param {Date} today - 今日の日付
+ * @returns {string} 日付の表示文字列
+ */
+function formatDateLabel(date: Date, today: Date): string {
+  const diffDays = Math.floor(
+    (date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays === 0) {
+    return "今日";
+  } else if (diffDays === 1) {
+    return "明日";
+  } else if (diffDays === 2) {
+    return "明後日";
+  } else {
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}/${day}`;
+  }
 }
 
 /**
@@ -94,6 +174,89 @@ async function getCityName(lat: string, lon: string): Promise<string> {
   } catch (error) {
     console.error("Failed to get city name:", error);
     return "東京";
+  }
+}
+
+/**
+ * 警報・注意報を取得
+ *
+ * @param {string} areaCode - エリアコード
+ * @returns {Promise<Array<{type: string, status: string}>>} 警報・注意報の配列
+ */
+async function getWarnings(
+  areaCode: string
+): Promise<Array<{ type: string; status: string }>> {
+  try {
+    const response = await fetch(
+      `https://www.jma.go.jp/bosai/warning/data/warning/${areaCode}.json`,
+      {
+        headers: {
+          "User-Agent": "Homepage-Weather-Widget",
+        },
+        next: { revalidate: 600 }, // 10分キャッシュ
+      }
+    );
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data: unknown = await response.json();
+    if (typeof data !== "object" || data === null) {
+      return [];
+    }
+
+    const warnings: Array<{ type: string; status: string }> = [];
+
+    // 警報・注意報データを解析
+    if ("areaTypes" in data && Array.isArray(data.areaTypes)) {
+      for (const areaType of data.areaTypes) {
+        if (
+          typeof areaType === "object" &&
+          areaType !== null &&
+          "areas" in areaType &&
+          Array.isArray(areaType.areas)
+        ) {
+          for (const area of areaType.areas) {
+            if (
+              typeof area === "object" &&
+              area !== null &&
+              "warnings" in area &&
+              Array.isArray(area.warnings)
+            ) {
+              for (const warning of area.warnings) {
+                if (
+                  typeof warning === "object" &&
+                  warning !== null &&
+                  "status" in warning &&
+                  "name" in warning
+                ) {
+                  const status = String(warning.status);
+                  const name = String(warning.name);
+
+                  // 発表中の警報・注意報のみを追加
+                  if (
+                    status === "発表" ||
+                    status === "継続" ||
+                    status === "special_warning"
+                  ) {
+                    warnings.push({
+                      type: name,
+                      status: status,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return warnings;
+  } catch (error) {
+    console.error("Failed to get warnings:", error);
+    return [];
   }
 }
 
@@ -186,7 +349,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         headers: {
           "User-Agent": "Homepage-Weather-Widget",
         },
-        next: { revalidate: 600 }, // 10分キャッシュ
+        next: { revalidate: 3600 }, // 1時間キャッシュ
       }
     );
 
@@ -216,22 +379,35 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    const areaData = forecastData[0] as {
+    // forecastData[0]: 短期予報（今日、明日、明後日）
+    const shortTermData = forecastData[0] as {
       timeSeries: Array<{
+        timeDefines?: string[];
         areas: Array<{
-          area: { name: string };
+          area: { name: string; code?: string };
           weatherCodes?: string[];
           temps?: string[];
         }>;
       }>;
     };
 
-    // 最初のエリアのデータを取得
-    const firstArea =
-      areaData.timeSeries[0]?.areas?.[0] ||
-      areaData.timeSeries[1]?.areas?.[0];
+    // forecastData[1]: 7日間予報（明日から7日後まで）
+    const longTermData = forecastData[1] as {
+      timeSeries: Array<{
+        timeDefines?: string[];
+        areas: Array<{
+          area: { name: string; code?: string };
+          weatherCodes?: string[];
+          tempsMin?: string[];
+          tempsMax?: string[];
+          pops?: string[];
+        }>;
+      }>;
+    } | undefined;
 
-    if (!firstArea) {
+    // 短期予報から今日の天気を取得
+    const shortTermWeatherSeries = shortTermData.timeSeries[0];
+    if (!shortTermWeatherSeries || !shortTermWeatherSeries.areas || shortTermWeatherSeries.areas.length === 0) {
       return NextResponse.json({
         temperature: null,
         description: "晴れ",
@@ -240,25 +416,27 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    // 天気コードから天気を取得
-    const weatherCode =
-      firstArea.weatherCodes?.[0] || firstArea.weatherCodes?.[1] || "100";
-    const weatherDescription = weatherCode.includes("100")
-      ? "晴れ"
-      : weatherCode.includes("200")
-      ? "曇り"
-      : weatherCode.includes("300")
-      ? "雨"
-      : weatherCode.includes("400")
-      ? "雪"
-      : "晴れ";
+    const shortTermArea = shortTermWeatherSeries.areas[0];
+    const shortTermTimeDefines = shortTermWeatherSeries.timeDefines || [];
 
-    // 気温を取得（可能な場合）
+    // 短期予報から気温を取得（timeSeries[2]に気温データがある）
+    const shortTermTempSeries = shortTermData.timeSeries[2];
+    const shortTermTempArea = shortTermTempSeries?.areas?.find(
+      (area) => area.area.name === "東京" || area.area.code === "44132"
+    ) || shortTermTempSeries?.areas?.[0];
+
+    // 今日の天気コードを取得（最初の予報日）
+    const todayWeatherCode = shortTermArea.weatherCodes?.[0] || "100";
+    const weatherDescription = getWeatherDescription(todayWeatherCode);
+
+    // 今日の気温を取得（短期予報のtempsから）
+    // tempsの構造: [現在時刻の気温, 今日の最低気温, 明日の最低気温, 明日の最高気温]
     let temperature: number | null = null;
-    if (firstArea.temps && firstArea.temps.length > 0) {
-      const tempStr = firstArea.temps[0];
-      if (tempStr && tempStr !== "--") {
-        const temp = parseFloat(tempStr);
+    if (shortTermTempArea?.temps && shortTermTempArea.temps.length > 0) {
+      // 現在時刻の気温を優先、なければ今日の最低気温
+      const currentTempStr = shortTermTempArea.temps[0];
+      if (currentTempStr && currentTempStr !== "--") {
+        const temp = parseFloat(currentTempStr);
         if (!isNaN(temp)) {
           temperature = temp;
         }
@@ -266,9 +444,12 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     // エリア名を取得（市名を使用）
-    const location = cityName || firstArea.area?.name || "東京";
+    const location = cityName || shortTermArea.area?.name || "東京";
 
-    // 数時間後の天気予報を取得
+    // 警報・注意報を取得
+    const warnings = await getWarnings(areaCode);
+
+    // 日ごとの天気予報を取得（最大3日先まで）
     const futureForecast: Array<{
       time: string;
       description: string;
@@ -276,27 +457,86 @@ export async function GET(request: Request): Promise<NextResponse> {
       precipitation?: string;
     }> = [];
 
-    // timeSeriesから数時間後の天気を取得
-    for (const timeSeries of areaData.timeSeries) {
-      if (timeSeries.areas && timeSeries.areas.length > 0) {
-        const area = timeSeries.areas[0];
-        if (area.weatherCodes && area.weatherCodes.length > 1) {
-          // 最初の3時間分の予報を取得（現在を除く）
-          for (let i = 1; i < Math.min(4, area.weatherCodes.length); i++) {
-            const code = area.weatherCodes[i];
-            if (code) {
-              const desc = code.includes("100")
-                ? "晴れ"
-                : code.includes("200")
-                ? "曇り"
-                : code.includes("300")
-                ? "雨"
-                : code.includes("400")
-                ? "雪"
-                : "晴れ";
-              
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // 時刻を0時にリセット
+
+    // 7日間予報がある場合はそれを使用、なければ短期予報を使用
+    if (longTermData && longTermData.timeSeries && longTermData.timeSeries.length > 0) {
+      const longTermWeatherSeries = longTermData.timeSeries[0];
+      const longTermTempSeries = longTermData.timeSeries[1];
+
+      if (longTermWeatherSeries && longTermWeatherSeries.areas && longTermWeatherSeries.areas.length > 0) {
+        const longTermArea = longTermWeatherSeries.areas[0];
+        const longTermTimeDefines = longTermWeatherSeries.timeDefines || [];
+        const longTermTempArea = longTermTempSeries?.areas?.find(
+          (area) => area.area.name === "東京" || area.area.code === "44132"
+        ) || longTermTempSeries?.areas?.[0];
+        const longTermTempTimeDefines = longTermTempSeries?.timeDefines || [];
+
+        // 7日間予報から最大3日分を取得
+        if (longTermArea.weatherCodes && longTermTimeDefines.length > 0) {
+          for (let i = 0; i < Math.min(longTermArea.weatherCodes.length, 3); i++) {
+            const code = longTermArea.weatherCodes[i];
+            const timeStr = longTermTimeDefines[i];
+
+            if (code && timeStr) {
+              const forecastDate = new Date(timeStr);
+              forecastDate.setHours(0, 0, 0, 0);
+
+              // 今日以降の予報のみ追加
+              if (forecastDate >= today) {
+                const desc = getWeatherDescription(code);
+
+                // 対応する気温を取得
+                let tempInfo = "";
+                if (longTermTempArea && longTermTempTimeDefines.length > 0) {
+                  // 同じ日付の気温を探す
+                  for (let j = 0; j < longTermTempTimeDefines.length; j++) {
+                    const tempDate = new Date(longTermTempTimeDefines[j]);
+                    tempDate.setHours(0, 0, 0, 0);
+                    if (tempDate.getTime() === forecastDate.getTime()) {
+                      const minTemp = longTermTempArea.tempsMin?.[j];
+                      const maxTemp = longTermTempArea.tempsMax?.[j];
+                      if (minTemp && minTemp !== "" && maxTemp && maxTemp !== "") {
+                        tempInfo = `${minTemp}°/${maxTemp}°`;
+                      } else if (maxTemp && maxTemp !== "") {
+                        tempInfo = `${maxTemp}°`;
+                      } else if (minTemp && minTemp !== "") {
+                        tempInfo = `${minTemp}°`;
+                      }
+                      break;
+                    }
+                  }
+                }
+
+                futureForecast.push({
+                  time: formatDateLabel(forecastDate, today),
+                  description: desc,
+                  icon: getWeatherIcon(code),
+                  precipitation: tempInfo || undefined,
+                });
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // 7日間予報がない場合は短期予報を使用
+      if (shortTermArea.weatherCodes && shortTermTimeDefines.length > 0) {
+        for (let i = 0; i < Math.min(shortTermArea.weatherCodes.length, 3); i++) {
+          const code = shortTermArea.weatherCodes[i];
+          const timeStr = shortTermTimeDefines[i];
+
+          if (code && timeStr) {
+            const forecastDate = new Date(timeStr);
+            forecastDate.setHours(0, 0, 0, 0);
+
+            // 今日以降の予報のみ追加
+            if (forecastDate >= today) {
+              const desc = getWeatherDescription(code);
+
               futureForecast.push({
-                time: `${i * 3}時間後`,
+                time: formatDateLabel(forecastDate, today),
                 description: desc,
                 icon: getWeatherIcon(code),
               });
@@ -306,13 +546,22 @@ export async function GET(request: Request): Promise<NextResponse> {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       temperature,
       description: weatherDescription,
-      icon: getWeatherIcon(weatherCode),
+      icon: getWeatherIcon(todayWeatherCode),
       location,
       futureForecast: futureForecast.length > 0 ? futureForecast : undefined,
+      warnings: warnings.length > 0 ? warnings : undefined,
     });
+
+    // 1時間キャッシュを設定
+    response.headers.set(
+      "Cache-Control",
+      "public, s-maxage=3600, stale-while-revalidate=86400"
+    );
+
+    return response;
   } catch (error) {
     console.error("Failed to fetch weather:", error);
     // エラーの場合はデフォルト値を返す
