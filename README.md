@@ -1,6 +1,6 @@
 # <img src="assets/icon.png" alt="Better Tab" width="32" height="32" style="vertical-align: middle; margin-right: 8px;" /> Better Tab
 
-カスタマイズ可能な新しいタブページ。時計、天気、カレンダー、トレンド記事を一つのページに集約した、モダンで使いやすい新しいタブページです。
+カスタマイズ可能な新しいタブページ。時計、天気、カレンダー、トレンド記事を一つのページに集約した、モダンで使いやすい新しいタブ用のページです。
 
 ![Better Tab Screenshot](assets/screen.png)
 
