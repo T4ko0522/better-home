@@ -31,6 +31,65 @@ const holidaysCache: {
 };
 
 /**
+ * localStorageから祝日データを取得
+ *
+ * @param {number} year - 取得する年
+ * @returns {Holidays | null} キャッシュされた祝日データ、またはnull
+ */
+const getHolidaysFromStorage = (year: number): Holidays | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const cached = localStorage.getItem("holidays_cache");
+    if (!cached) {
+      return null;
+    }
+
+    const parsed = JSON.parse(cached) as {
+      data: Holidays;
+      year: number;
+    };
+
+    // 年が一致する場合はデータを返す
+    if (parsed.year === year) {
+      return parsed.data;
+    }
+
+    // 年が一致しない場合はキャッシュを削除
+    localStorage.removeItem("holidays_cache");
+    return null;
+  } catch {
+    // パースエラーの場合はキャッシュを削除
+    localStorage.removeItem("holidays_cache");
+    return null;
+  }
+};
+
+/**
+ * localStorageに祝日データを保存
+ *
+ * @param {Holidays} data - 保存する祝日データ
+ * @param {number} year - 保存する年
+ */
+const saveHolidaysToStorage = (data: Holidays, year: number): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const cacheData = {
+      data,
+      year,
+    };
+    localStorage.setItem("holidays_cache", JSON.stringify(cacheData));
+  } catch (error) {
+    console.error("Failed to save holidays to localStorage:", error);
+  }
+};
+
+/**
  * カレンダーコンポーネント
  * 日本時間（JST）で現在の日付とカレンダーを表示
  *
@@ -40,7 +99,19 @@ const holidaysCache: {
 export function Calendar({ isMobile = false }: CalendarProps): React.ReactElement {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [holidays, setHolidays] = useState<Holidays>(holidaysCache.data);
+  // localStorageからキャッシュを読み込む
+  const [holidays, setHolidays] = useState<Holidays>(() => {
+    if (typeof window !== "undefined") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const cached = getHolidaysFromStorage(year);
+      if (cached) {
+        holidaysCache.data = cached;
+        return cached;
+      }
+    }
+    return holidaysCache.data;
+  });
 
   // クライアントサイドでのみ実行（ハイドレーションエラーを防ぐ）
   useEffect(() => {
@@ -51,7 +122,18 @@ export function Calendar({ isMobile = false }: CalendarProps): React.ReactElemen
      * 祝日データを取得する
      */
     const fetchHolidays = async (): Promise<void> => {
-      // 既にキャッシュがある場合はそれを使用
+      const now = new Date();
+      const year = now.getFullYear();
+
+      // まずlocalStorageからキャッシュを確認
+      const cachedData = getHolidaysFromStorage(year);
+      if (cachedData) {
+        holidaysCache.data = cachedData;
+        setHolidays(cachedData);
+        return;
+      }
+
+      // 既にメモリキャッシュがある場合はそれを使用
       if (Object.keys(holidaysCache.data).length > 0) {
         setHolidays(holidaysCache.data);
         return;
@@ -73,9 +155,6 @@ export function Calendar({ isMobile = false }: CalendarProps): React.ReactElemen
       
       const fetchPromise = (async (): Promise<Holidays> => {
         try {
-          const now = new Date();
-          const year = now.getFullYear();
-
           // 現在の年の祝日を取得
           const response = await fetch(`/api/holidays?year=${year}`);
           if (response.ok) {
@@ -89,6 +168,7 @@ export function Calendar({ isMobile = false }: CalendarProps): React.ReactElemen
             ) {
               const holidaysData = data.holidays as Holidays;
               holidaysCache.data = holidaysData;
+              saveHolidaysToStorage(holidaysData, year);
               setHolidays(holidaysData);
               return holidaysData;
             }
