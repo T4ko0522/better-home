@@ -42,6 +42,7 @@ export default function Home(): React.ReactElement {
   const [selectedImageSrc, setSelectedImageSrc] = useState<string>("");
   const [thumbnailCache, setThumbnailCache] = useState<Map<string, string>>(new Map());
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [isLightBackground, setIsLightBackground] = useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -431,6 +432,88 @@ export default function Home(): React.ReactElement {
     };
   }, [isVideo]);
 
+  // 背景画像の明るさを判定
+  React.useEffect(() => {
+    /**
+     * 画像の平均輝度を計算する
+     *
+     * @param {string} imageUrl - 画像のURL
+     * @returns {Promise<number>} 0-255の輝度値
+     */
+    const calculateBrightness = async (imageUrl: string): Promise<number> => {
+      return new Promise((resolve) => {
+        const img = document.createElement("img");
+        img.crossOrigin = "Anonymous";
+        
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              resolve(128); // デフォルト値
+              return;
+            }
+
+            // パフォーマンスのため、小さいサイズでサンプリング
+            canvas.width = 100;
+            canvas.height = 100;
+            ctx.drawImage(img, 0, 0, 100, 100);
+
+            const imageData = ctx.getImageData(0, 0, 100, 100);
+            const data = imageData.data;
+            let brightness = 0;
+
+            // RGB値から輝度を計算（人間の視覚に基づいた重み付け）
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              brightness += (r * 0.299 + g * 0.587 + b * 0.114);
+            }
+
+            const avgBrightness = brightness / (100 * 100);
+            resolve(avgBrightness);
+          } catch (error) {
+            console.error("Failed to calculate brightness:", error);
+            resolve(128); // エラー時はデフォルト値
+          }
+        };
+
+        img.onerror = () => {
+          resolve(128); // エラー時はデフォルト値
+        };
+
+        img.src = imageUrl;
+      });
+    };
+
+    /**
+     * 背景の明るさを判定して状態を更新
+     */
+    const checkBackgroundBrightness = async (): Promise<void> => {
+      if (!currentImage) {
+        setIsLightBackground(false);
+        return;
+      }
+
+      try {
+        // 動画の場合はサムネイルで判定
+        if (isVideo && currentThumbnail) {
+          const brightness = await calculateBrightness(currentThumbnail);
+          setIsLightBackground(brightness > 128);
+        } else if (!isVideo) {
+          const brightness = await calculateBrightness(currentImage);
+          setIsLightBackground(brightness > 128);
+        }
+      } catch (error) {
+        console.error("Failed to check background brightness:", error);
+        setIsLightBackground(false);
+      }
+    };
+
+    checkBackgroundBrightness();
+  }, [currentImage, isVideo, currentThumbnail]);
+
   return (
     <div className="fixed inset-0 w-full h-full overflow-y-auto">
       {/* 背景レイヤー（固定） */}
@@ -487,7 +570,7 @@ export default function Home(): React.ReactElement {
         <header className="flex justify-center md:justify-end items-start p-6 gap-4">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="bg-black/50 hover:bg-black/60 backdrop-blur-lg">
+              <Button variant="outline" size="sm" className="bg-white/90 dark:bg-black/30 backdrop-blur-sm border border-border hover:bg-white dark:hover:bg-black/40">
                 <ImagePlus className="size-4" />
                 背景画像
               </Button>
@@ -676,7 +759,7 @@ export default function Home(): React.ReactElement {
               <Button
                 variant="outline"
                 size="sm"
-                className="bg-black/50 hover:bg-black/60 backdrop-blur-lg"
+                className="bg-white/90 dark:bg-black/30 backdrop-blur-sm border border-border hover:bg-white dark:hover:bg-black/40"
                 onClick={handleOpenSettings}
               >
                 <Settings className="size-4" />
@@ -894,7 +977,7 @@ export default function Home(): React.ReactElement {
           <Button
             variant="outline"
             size="sm"
-            className="bg-black/50 hover:bg-black/60 backdrop-blur-lg flex items-center gap-2 text-foreground"
+            className="bg-white/90 dark:bg-black/30 backdrop-blur-sm border border-border hover:bg-white dark:hover:bg-black/40 flex items-center gap-2 text-foreground"
             onClick={() =>
               (window.location.href = "https://mail.google.com/mail/u/0/#inbox")
             }
@@ -925,7 +1008,9 @@ export default function Home(): React.ReactElement {
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search 
-                  className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-4 sm:size-5 md:size-5 text-muted-foreground z-10 cursor-pointer" 
+                  className={`absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-4 sm:size-5 md:size-5 z-10 cursor-pointer ${
+                    isLightBackground ? "text-gray-600" : "text-muted-foreground"
+                  }`}
                   onClick={() => {
                     const form = document.getElementById("search-form") as HTMLFormElement;
                     if (form) {
@@ -939,7 +1024,11 @@ export default function Home(): React.ReactElement {
                   placeholder="検索またはドメイン..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 sm:pl-9 md:pl-10 h-10 sm:h-11 md:h-9 text-sm sm:text-base md:text-sm bg-black/50 backdrop-blur-lg relative z-0 text-white placeholder:text-white/80"
+                  className={`pl-8 sm:pl-9 md:pl-10 h-10 sm:h-11 md:h-9 text-sm sm:text-base md:text-sm backdrop-blur-lg relative z-0 ${
+                    isLightBackground 
+                      ? "bg-white/70 text-gray-900 placeholder:text-gray-600" 
+                      : "bg-black/50 text-white placeholder:text-white/80"
+                  }`}
                 />
               </div>
             </div>
