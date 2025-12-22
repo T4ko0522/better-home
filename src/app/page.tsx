@@ -432,45 +432,48 @@ export default function Home(): React.ReactElement {
   }, [isVideo]);
 
   return (
-    <div
-      className="min-h-screen w-full relative bg-background"
-      style={backgroundStyle}
-    >
-      {/* 背景動画 */}
-      {currentImage && isVideo && (
-        <video
-          ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover z-0"
-          src={currentImage}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          onLoadedData={() => {
-            setIsVideoLoaded(true);
-          }}
-          onError={(e) => {
-            const video = e.currentTarget;
-            console.error("Video load error:", {
-              error: video.error,
-              code: video.error?.code,
-              message: video.error?.message,
-              src: currentImage,
-              networkState: video.networkState,
-              readyState: video.readyState,
-            });
-          }}
-          style={{
-            opacity: isVideoLoaded ? 1 : 0,
-            transition: "opacity 0.3s ease-in-out",
-          }}
-        />
-      )}
-      {/* オーバーレイ（背景メディアがある場合かつ設定で有効な場合のみ表示） */}
-      {currentImage && settings.showOverlay && (
-        <div className="absolute inset-0 bg-background/20 dark:bg-background/40 z-1" />
-      )}
+    <div className="fixed inset-0 w-full h-full overflow-y-auto">
+      {/* 背景レイヤー（固定） */}
+      <div
+        className="fixed inset-0 w-full h-full bg-background"
+        style={backgroundStyle}
+      >
+        {/* 背景動画 */}
+        {currentImage && isVideo && (
+          <video
+            ref={videoRef}
+            className="absolute inset-0 w-full h-full object-cover z-0"
+            src={currentImage}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            onLoadedData={() => {
+              setIsVideoLoaded(true);
+            }}
+            onError={(e) => {
+              const video = e.currentTarget;
+              console.error("Video load error:", {
+                error: video.error,
+                code: video.error?.code,
+                message: video.error?.message,
+                src: currentImage,
+                networkState: video.networkState,
+                readyState: video.readyState,
+              });
+            }}
+            style={{
+              opacity: isVideoLoaded ? 1 : 0,
+              transition: "opacity 0.3s ease-in-out",
+            }}
+          />
+        )}
+        {/* オーバーレイ（背景メディアがある場合かつ設定で有効な場合のみ表示） */}
+        {currentImage && settings.showOverlay && (
+          <div className="absolute inset-0 bg-background/20 dark:bg-background/40 z-1" />
+        )}
+      </div>
 
       {/* メインコンテンツ */}
       <div className="relative z-10 min-h-screen flex flex-col">
@@ -916,13 +919,13 @@ export default function Home(): React.ReactElement {
         </header>
 
         {/* メインコンテンツエリア */}
-        <main className="flex-1 flex flex-col items-center px-4 sm:px-6 py-8 sm:py-12 md:justify-center">
+        <main className="flex-1 flex flex-col items-center px-3 sm:px-4 md:px-6 py-6 sm:py-8 md:py-12 md:justify-center">
           {/* 検索ボックス */}
-          <form onSubmit={handleSearch} id="search-form" className="w-full max-w-2xl mb-6 sm:mb-8">
+          <form onSubmit={handleSearch} id="search-form" className="w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mb-4 sm:mb-6 md:mb-8">
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 size-4 sm:size-5 text-muted-foreground z-10 cursor-pointer" 
+                  className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-4 sm:size-5 md:size-5 text-muted-foreground z-10 cursor-pointer" 
                   onClick={() => {
                     const form = document.getElementById("search-form") as HTMLFormElement;
                     if (form) {
@@ -936,7 +939,7 @@ export default function Home(): React.ReactElement {
                   placeholder="検索またはドメイン..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 sm:pl-10 text-sm sm:text-base bg-black/50 backdrop-blur-lg relative z-0 text-white placeholder:text-white"
+                  className="pl-8 sm:pl-9 md:pl-10 h-10 sm:h-11 md:h-9 text-sm sm:text-base md:text-sm bg-black/50 backdrop-blur-lg relative z-0 text-white placeholder:text-white/80"
                 />
               </div>
             </div>
@@ -950,12 +953,19 @@ export default function Home(): React.ReactElement {
 
           {/* スマホ: トレンド記事（中央揃え） */}
           {appSettings.showTrendingArticles && (
-            <div className="md:hidden w-full max-w-2xl mb-6">
+            <div className="md:hidden w-full px-4 mb-6 flex justify-center">
               <TrendingArticles />
             </div>
           )}
         </main>
       </div>
+
+      {/* デスクトップ: トレンド記事（右下） */}
+      {appSettings.showTrendingArticles && (
+        <div className="hidden md:block absolute bottom-6 right-6 z-20">
+          <TrendingArticles />
+        </div>
+      )}
 
       {/* 画像トリミングモーダル */}
       <ImageCropper
@@ -967,13 +977,6 @@ export default function Home(): React.ReactElement {
         }}
         open={cropperOpen}
       />
-
-      {/* デスクトップ: トレンド記事（右下） */}
-      {appSettings.showTrendingArticles && (
-        <div className="hidden md:block">
-          <TrendingArticles />
-        </div>
-      )}
     </div>
   );
 }
