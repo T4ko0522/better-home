@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="assets/icon.png" alt="Better Tab" width="256" height="256" />
   <h1>Better Tab</h1>
+  <img src="assets/icon.png" alt="Better Tab" width="256" height="256" />
   <p>
     カスタマイズ可能な新しいタブページ。<br />
     時計、天気、カレンダー、トレンド記事を一つのページに集約した、<br />
