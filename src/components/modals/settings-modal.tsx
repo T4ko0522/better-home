@@ -57,6 +57,14 @@ interface SettingsModalProps {
   settingsChangeByTime: boolean;
   /** 時間で変更設定を更新する関数 */
   setSettingsChangeByTime: (value: boolean) => void;
+  /** 動画変更間隔設定 */
+  settingsVideoChangeInterval: number;
+  /** 動画変更間隔設定を更新する関数 */
+  setSettingsVideoChangeInterval: (value: number) => void;
+  /** 動画シャッフル設定 */
+  settingsVideoShuffle: boolean;
+  /** 動画シャッフル設定を更新する関数 */
+  setSettingsVideoShuffle: (value: boolean) => void;
   /** 現在のタブ */
   settingsTab: string;
   /** タブを変更する関数 */
@@ -86,6 +94,10 @@ export const SettingsModal = ({
   setSettingsShowOverlay,
   settingsChangeByTime,
   setSettingsChangeByTime,
+  settingsVideoChangeInterval,
+  setSettingsVideoChangeInterval,
+  settingsVideoShuffle,
+  setSettingsVideoShuffle,
   settingsTab,
   setSettingsTab,
   handleOpenSettings,
@@ -112,9 +124,10 @@ export const SettingsModal = ({
           </DialogDescription>
         </DialogHeader>
         <Tabs value={settingsTab} onValueChange={setSettingsTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="display">表示設定</TabsTrigger>
             <TabsTrigger value="background">背景画像</TabsTrigger>
+            <TabsTrigger value="video">背景動画</TabsTrigger>
           </TabsList>
 
           {/* 表示設定タブ */}
@@ -216,7 +229,7 @@ export const SettingsModal = ({
             <div>
               <h3 className="text-sm font-semibold mb-3">背景画像</h3>
               {isCurrentMediaVideo && (
-                <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                <p className="text-xs text-yellow-800 dark:text-yellow-200 mb-3">
                   ※ 現在の背景は動画のため、これらの設定は画像選択時のみ有効です。
                 </p>
               )}
@@ -287,6 +300,59 @@ export const SettingsModal = ({
                   <label htmlFor="showOverlay" className="text-sm">
                     背景画像の上にオーバーレイを表示
                   </label>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* 背景動画設定タブ */}
+          <TabsContent value="video" className="space-y-6 mt-4">
+            <div>
+              <h3 className="text-sm font-semibold mb-3">背景動画</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                動画を複数登録している場合、設定した時間間隔で自動的に切り替わります。
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="videoShuffle"
+                    checked={settingsVideoShuffle}
+                    onChange={(e) => {
+                      const value = e.target.checked;
+                      setSettingsVideoShuffle(value);
+                      updateSettings({ videoShuffle: value });
+                    }}
+                    className="size-4"
+                  />
+                  <label htmlFor="videoShuffle" className="text-sm">
+                    動画をランダムに変更
+                  </label>
+                </div>
+                {!settingsVideoShuffle && (
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    ※ 動画の自動変更がオフになっています。現在の動画が固定されます。
+                  </p>
+                )}
+                <div>
+                  <label htmlFor="videoChangeInterval" className={`text-sm block mb-2 ${!settingsVideoShuffle ? "text-muted-foreground" : ""}`}>
+                    動画変更間隔（時間）
+                  </label>
+                  <Input
+                    id="videoChangeInterval"
+                    type="number"
+                    min="1"
+                    value={settingsVideoChangeInterval}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setSettingsVideoChangeInterval(value);
+                      updateSettings({ videoChangeInterval: value });
+                    }}
+                    disabled={!settingsVideoShuffle}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ※ 時刻を参照して変更されます（タブを開いているかに関係なく動作）
+                  </p>
                 </div>
               </div>
             </div>

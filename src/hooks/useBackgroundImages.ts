@@ -29,6 +29,10 @@ export interface BackgroundSettings {
   changeByTime: boolean;
   /** 選択された画像のURL（永続化用） */
   selectedImageUrl: string | null;
+  /** 動画変更間隔（時間単位） */
+  videoChangeInterval: number;
+  /** 動画をランダムに変更するかどうか */
+  videoShuffle: boolean;
 }
 
 /**
@@ -56,6 +60,7 @@ export interface UseBackgroundImagesReturn {
 const STORAGE_KEY_IMAGES = "images";
 const STORAGE_KEY_SETTINGS = "settings";
 const LOCALSTORAGE_KEY_CURRENT_THUMBNAIL = "current_thumbnail";
+const LOCALSTORAGE_KEY_LAST_VIDEO_CHANGE = "last_video_change_time";
 
 /**
  * デフォルトの背景画像URLのリスト
@@ -194,6 +199,8 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
     showOverlay: false,
     changeByTime: false,
     selectedImageUrl: null,
+    videoChangeInterval: 24,
+    videoShuffle: true,
   });
 
   // 初期化: IndexedDBからデータを読み込む
@@ -301,6 +308,16 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
                   (parsed as { selectedImageUrl: unknown }).selectedImageUrl === null)
                   ? ((parsed as { selectedImageUrl: unknown }).selectedImageUrl as string | null)
                   : null,
+              videoChangeInterval:
+                "videoChangeInterval" in parsed &&
+                typeof (parsed as { videoChangeInterval: unknown }).videoChangeInterval === "number"
+                  ? ((parsed as { videoChangeInterval: unknown }).videoChangeInterval as number)
+                  : 24,
+              videoShuffle:
+                "videoShuffle" in parsed &&
+                typeof (parsed as { videoShuffle: unknown }).videoShuffle === "boolean"
+                  ? ((parsed as { videoShuffle: unknown }).videoShuffle as boolean)
+                  : true,
             };
             setSettings(settingsWithDefaults);
             
@@ -493,7 +510,7 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
    *
    * @param {string} url - 選択する画像のURL
    */
-  const selectImage = async (url: string): Promise<void> => {
+  const selectImage = useCallback(async (url: string): Promise<void> => {
     const selectedImageData = images.find((img) => img.url === url);
     if (selectedImageData) {
       // サムネイルがある場合はlocalStorageにキャッシュ（次回起動時の高速化）
@@ -516,6 +533,15 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
         }
       }
 
+      // 動画の場合は最後の変更時刻を保存
+      if (url.startsWith("data:video/") || (url.startsWith("http") && /\.(mp4|mov|webm|avi|mkv|ogg|ogv|flv|wmv)$/i.test(url))) {
+        try {
+          localStorage.setItem(LOCALSTORAGE_KEY_LAST_VIDEO_CHANGE, Date.now().toString());
+        } catch (error) {
+          console.error("Failed to save last video change time:", error);
+        }
+      }
+
       // Blob URLを設定（一度だけ設定）
       setCurrentImage(displayUrl);
 
@@ -528,7 +554,7 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
         console.error("Failed to save selected image to IndexedDB:", error);
       }
     }
-  };
+  }, [images, settings]);
 
   /**
    * 背景画像の設定を更新する
@@ -586,6 +612,80 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
 
     return () => clearInterval(interval);
   }, [settings.changeByTime, settings.shuffle, settings.changeInterval, images.length, selectRandomImage, currentImage]);
+
+  // 動画の時刻ベース変更チェック（1時間ごとにチェック）
+  useEffect(() => {
+    // videoShuffleがfalseの場合は動画変更を行わない
+    if (!settings.videoShuffle || images.length <= 1 || !settings.videoChangeInterval) return;
+
+    /**
+     * 動画を変更すべきかチェックして、必要なら変更する
+     */
+    const checkAndChangeVideo = (): void => {
+      if (!currentImage) return;
+
+      // Blob URLの場合は元のData URLを取得
+      let urlToCheck = currentImage;
+      if (currentImage.startsWith("blob:")) {
+        const originalDataUrl = getDataUrlFromBlobUrl(currentImage);
+        if (originalDataUrl) {
+          urlToCheck = originalDataUrl;
+        }
+      }
+
+      // 動画かどうかをチェック
+      const isVideoMedia = urlToCheck.startsWith("data:video/") || (urlToCheck.startsWith("http") && /\.(mp4|mov|webm|avi|mkv|ogg|ogv|flv|wmv)$/i.test(urlToCheck));
+      
+      if (!isVideoMedia) return;
+
+      // 動画のリストを取得
+      const videoImages = images.filter((img) => 
+        img.url.startsWith("data:video/") || 
+        (img.url.startsWith("http") && /\.(mp4|mov|webm|avi|mkv|ogg|ogv|flv|wmv)$/i.test(img.url))
+      );
+
+      if (videoImages.length <= 1) return;
+
+      // 最後の変更時刻を取得
+      try {
+        const lastChangeTimeStr = localStorage.getItem(LOCALSTORAGE_KEY_LAST_VIDEO_CHANGE);
+        if (lastChangeTimeStr) {
+          const lastChangeTime = parseInt(lastChangeTimeStr, 10);
+          const currentTime = Date.now();
+          const elapsedHours = (currentTime - lastChangeTime) / (1000 * 60 * 60);
+
+          // 設定された時間を超えていたら動画を変更
+          if (elapsedHours >= settings.videoChangeInterval) {
+            if (settings.videoShuffle) {
+              // ランダムに別の動画を選択
+              const otherVideos = videoImages.filter((img) => img.url !== urlToCheck);
+              if (otherVideos.length > 0) {
+                const randomIndex = Math.floor(Math.random() * otherVideos.length);
+                void selectImage(otherVideos[randomIndex].url);
+              }
+            } else {
+              // 順番に次の動画を選択
+              const currentIndex = videoImages.findIndex((img) => img.url === urlToCheck);
+              if (currentIndex !== -1) {
+                const nextIndex = (currentIndex + 1) % videoImages.length;
+                void selectImage(videoImages[nextIndex].url);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check video change time:", error);
+      }
+    };
+
+    // 初回チェック
+    checkAndChangeVideo();
+
+    // 1時間ごとにチェック
+    const interval = setInterval(checkAndChangeVideo, 60 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [currentImage, images, settings.videoChangeInterval, settings.videoShuffle, selectImage]);
 
   return {
     images,
