@@ -5,13 +5,13 @@ import type { NextConfig } from "next";
  * .env.localでSTATIC_EXPORT=trueを設定すると静的エクスポートが有効になる
  * デフォルトではfalse（APIルートを使用可能）
  */
-const isStaticExport = process.env.STATIC_EXPORT === "true";
+const isStaticExport =
+  process.env.STATIC_EXPORT === "true" &&
+  process.env.VERCEL !== "1";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
   ...(isStaticExport && { output: "export" }),
-  distDir: "dist",
   images: {
     unoptimized: true,
   },
