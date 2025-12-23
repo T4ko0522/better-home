@@ -28,6 +28,8 @@ export default function Home(): React.ReactElement {
   const [settingsInterval, setSettingsInterval] = useState(5);
   const [settingsShowOverlay, setSettingsShowOverlay] = useState(true);
   const [settingsChangeByTime, setSettingsChangeByTime] = useState(false);
+  const [settingsVideoChangeInterval, setSettingsVideoChangeInterval] = useState(24);
+  const [settingsVideoShuffle, setSettingsVideoShuffle] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImageSrc, setSelectedImageSrc] = useState<string>("");
@@ -262,6 +264,8 @@ export default function Home(): React.ReactElement {
     setSettingsInterval(settings.changeInterval);
     setSettingsShowOverlay(settings.showOverlay);
     setSettingsChangeByTime(settings.changeByTime);
+    setSettingsVideoChangeInterval(settings.videoChangeInterval);
+    setSettingsVideoShuffle(settings.videoShuffle);
   };
 
 
@@ -426,6 +430,10 @@ export default function Home(): React.ReactElement {
           setSettingsShowOverlay={setSettingsShowOverlay}
           settingsChangeByTime={settingsChangeByTime}
           setSettingsChangeByTime={setSettingsChangeByTime}
+          settingsVideoChangeInterval={settingsVideoChangeInterval}
+          setSettingsVideoChangeInterval={setSettingsVideoChangeInterval}
+          settingsVideoShuffle={settingsVideoShuffle}
+          setSettingsVideoShuffle={setSettingsVideoShuffle}
           settingsTab={settingsTab}
           setSettingsTab={setSettingsTab}
           handleOpenSettings={handleOpenSettings}
