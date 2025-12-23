@@ -12,7 +12,7 @@
 
 ## 使用方法
 
-#### 拡張機能
+### 拡張機能
 1. Releaseからzipをダウンロードする
 2. ダウンロードしたzipを展開する
 3. chrome://extensions/ を開く
@@ -22,7 +22,7 @@
 
 ![説明](assets/説明.png)
 
-#### もしくは
+### もしくは
 1. [Custom New Tab](https://chromewebstore.google.com/detail/custom-new-tab/lfjnnkckddkopjfgmbcpdiolnmfobflj?hl=ja&utm_source=ext_sidebar) 拡張機能をインストール
 2. Custom New Tabの設定を開く
 3. urlをペーストしてセーブ
