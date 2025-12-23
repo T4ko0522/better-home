@@ -332,25 +332,37 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
                 let targetUrl: string | null = null;
                 let selectedImg: BackgroundImage | undefined;
 
+                // 前回選択された画像が動画かどうかをチェック
+                const previousIsVideo = settingsWithDefaults.selectedImageUrl && (
+                  settingsWithDefaults.selectedImageUrl.startsWith("data:video/") ||
+                  (settingsWithDefaults.selectedImageUrl.startsWith("http") && /\.(mp4|mov|webm|avi|mkv|ogg|ogv|flv|wmv)$/i.test(settingsWithDefaults.selectedImageUrl))
+                );
+
                 // shuffleがオンで、画像が2枚以上ある場合は、前回と異なる画像をランダム選択
+                // ただし、動画の場合は時間ベースの変更なので即座に変更しない
                 if (settingsWithDefaults.shuffle && 
+                    !previousIsVideo &&
                     imagesArray.length > 1 && 
                     settingsWithDefaults.selectedImageUrl &&
                     imagesArray.some((img) => img.url === settingsWithDefaults.selectedImageUrl)) {
-                  // 前回の画像以外から選択
-                  const otherImages = imagesArray.filter((img) => img.url !== settingsWithDefaults.selectedImageUrl);
+                  // 前回の画像以外から選択（動画以外の画像のみ）
+                  const otherImages = imagesArray.filter((img) => 
+                    img.url !== settingsWithDefaults.selectedImageUrl &&
+                    !img.url.startsWith("data:video/") &&
+                    !(img.url.startsWith("http") && /\.(mp4|mov|webm|avi|mkv|ogg|ogv|flv|wmv)$/i.test(img.url))
+                  );
                   if (otherImages.length > 0) {
                     const randomIndex = Math.floor(Math.random() * otherImages.length);
                     targetUrl = otherImages[randomIndex].url;
                     selectedImg = otherImages[randomIndex];
                   } else {
-                    // フォールバック（念のため）
-                    targetUrl = imagesArray[0].url;
-                    selectedImg = imagesArray[0];
+                    // 画像がなく動画のみの場合は、前回の選択を維持
+                    targetUrl = settingsWithDefaults.selectedImageUrl;
+                    selectedImg = imagesArray.find((img) => img.url === settingsWithDefaults.selectedImageUrl);
                   }
                 } else if (settingsWithDefaults.selectedImageUrl &&
                     imagesArray.some((img) => img.url === settingsWithDefaults.selectedImageUrl)) {
-                  // shuffleがオフの場合は前回の画像を表示
+                  // shuffleがオフの場合、または動画の場合は前回の画像を表示
                   targetUrl = settingsWithDefaults.selectedImageUrl;
                   selectedImg = imagesArray.find((img) => img.url === settingsWithDefaults.selectedImageUrl);
                 } else {
@@ -511,10 +523,19 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
 
   /**
    * ランダムに画像を選択する
+   * 動画は除外し、画像のみを対象にする
    * 画像が2枚以上ある場合は、現在の画像以外から選択する
    */
   const selectRandomImage = useCallback((): void => {
     if (images.length === 0) return;
+    
+    // 動画以外の画像のみをフィルタリング
+    const imageOnlyList = images.filter((img) => 
+      !img.url.startsWith("data:video/") &&
+      !(img.url.startsWith("http") && /\.(mp4|mov|webm|avi|mkv|ogg|ogv|flv|wmv)$/i.test(img.url))
+    );
+    
+    if (imageOnlyList.length === 0) return;
     
     // 現在の画像のData URLを取得
     let currentDataUrl: string | null = null;
@@ -527,12 +548,14 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
     }
     
     // 画像が2枚以上ある場合は、現在の画像以外から選択
-    let availableImages = images;
-    if (images.length > 1 && currentDataUrl) {
-      availableImages = images.filter((img) => img.url !== currentDataUrl);
+    let availableImages = imageOnlyList;
+    if (imageOnlyList.length > 1 && currentDataUrl) {
+      availableImages = imageOnlyList.filter((img) => img.url !== currentDataUrl);
+      // フィルタリング後に画像がない場合は、全画像から選択
+      if (availableImages.length === 0) {
+        availableImages = imageOnlyList;
+      }
     }
-    
-    if (availableImages.length === 0) return;
     
     const randomIndex = Math.floor(Math.random() * availableImages.length);
     const targetUrl = availableImages[randomIndex].url;
