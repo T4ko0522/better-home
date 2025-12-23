@@ -13,7 +13,7 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "prepare-extension.ts"],
+  "include": ["src/**/*.ts", "prepare-extension.ts", "build-extension.ts"],
   "exclude": ["node_modules", "dist"]
 }
 

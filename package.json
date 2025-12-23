@@ -9,7 +9,7 @@
     "build:web": "next build --webpack",
     "build:scripts": "tsc -p build_scripts/tsconfig.json",
     "build:extension-assets": "pnpm run build:scripts && node build_scripts/dist/prepare-extension.js",
-    "build:extension": "pnpm run build:web && pnpm run build:extension-assets",
+    "build:extension": "pnpm run build:scripts && node build_scripts/dist/build-extension.js",
     "start": "next start",
     "lint": "eslint"
   },
