@@ -332,11 +332,29 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
                 let targetUrl: string | null = null;
                 let selectedImg: BackgroundImage | undefined;
 
-                if (settingsWithDefaults.selectedImageUrl &&
+                // shuffleがオンで、画像が2枚以上ある場合は、前回と異なる画像をランダム選択
+                if (settingsWithDefaults.shuffle && 
+                    imagesArray.length > 1 && 
+                    settingsWithDefaults.selectedImageUrl &&
                     imagesArray.some((img) => img.url === settingsWithDefaults.selectedImageUrl)) {
+                  // 前回の画像以外から選択
+                  const otherImages = imagesArray.filter((img) => img.url !== settingsWithDefaults.selectedImageUrl);
+                  if (otherImages.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * otherImages.length);
+                    targetUrl = otherImages[randomIndex].url;
+                    selectedImg = otherImages[randomIndex];
+                  } else {
+                    // フォールバック（念のため）
+                    targetUrl = imagesArray[0].url;
+                    selectedImg = imagesArray[0];
+                  }
+                } else if (settingsWithDefaults.selectedImageUrl &&
+                    imagesArray.some((img) => img.url === settingsWithDefaults.selectedImageUrl)) {
+                  // shuffleがオフの場合は前回の画像を表示
                   targetUrl = settingsWithDefaults.selectedImageUrl;
                   selectedImg = imagesArray.find((img) => img.url === settingsWithDefaults.selectedImageUrl);
                 } else {
+                  // 選択された画像がない場合は最初の画像を表示
                   targetUrl = imagesArray[0].url;
                   selectedImg = imagesArray[0];
                 }
@@ -360,6 +378,12 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
                     } catch (error) {
                       console.error("Failed to cache thumbnail to localStorage:", error);
                     }
+                  }
+                  
+                  // 選択した画像をselectedImageUrlに保存（次回起動時の参照用）
+                  if (targetUrl !== settingsWithDefaults.selectedImageUrl) {
+                    settingsWithDefaults.selectedImageUrl = targetUrl;
+                    void setItem(STORE_NAMES.BACKGROUND_SETTINGS, STORAGE_KEY_SETTINGS, settingsWithDefaults);
                   }
                 }
               }
@@ -487,11 +511,31 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
 
   /**
    * ランダムに画像を選択する
+   * 画像が2枚以上ある場合は、現在の画像以外から選択する
    */
   const selectRandomImage = useCallback((): void => {
     if (images.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * images.length);
-    const targetUrl = images[randomIndex].url;
+    
+    // 現在の画像のData URLを取得
+    let currentDataUrl: string | null = null;
+    if (currentImage) {
+      if (currentImage.startsWith("blob:")) {
+        currentDataUrl = getDataUrlFromBlobUrl(currentImage);
+      } else {
+        currentDataUrl = currentImage;
+      }
+    }
+    
+    // 画像が2枚以上ある場合は、現在の画像以外から選択
+    let availableImages = images;
+    if (images.length > 1 && currentDataUrl) {
+      availableImages = images.filter((img) => img.url !== currentDataUrl);
+    }
+    
+    if (availableImages.length === 0) return;
+    
+    const randomIndex = Math.floor(Math.random() * availableImages.length);
+    const targetUrl = availableImages[randomIndex].url;
 
     // Data URLの場合はBlob URLに変換
     if (targetUrl.startsWith("data:")) {
@@ -503,7 +547,7 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
     } else {
       setCurrentImage(targetUrl);
     }
-  }, [images]);
+  }, [images, currentImage]);
 
   /**
    * 指定されたURLの画像を選択する
