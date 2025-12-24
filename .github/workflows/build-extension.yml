@@ -25,6 +25,7 @@ jobs:
             - run: pnpm run build:extension
             - name: Create zip archive
               run: |
+                  mkdir -p dist
                   cd build_scripts/extension
                   zip -r ../../dist/Better-Tab-v${{steps.package-version.outputs.current-version}}.zip .
             - name: Release
