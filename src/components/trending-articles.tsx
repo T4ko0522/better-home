@@ -29,6 +29,69 @@ const articlesCache: {
   promise: null,
 };
 
+const STORAGE_KEY = "trending-articles";
+const CACHE_DURATION_MS = 12 * 60 * 60 * 1000; // 12時間（ミリ秒）
+
+/**
+ * localStorageからトレンド記事データを取得する
+ *
+ * @returns {TrendingArticle[] | null} キャッシュされた記事データ、またはnull
+ */
+const getCachedArticles = (): TrendingArticle[] | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY);
+    if (!cached) {
+      return null;
+    }
+
+    const parsed = JSON.parse(cached) as {
+      data: TrendingArticle[];
+      timestamp: number;
+    };
+
+    // タイムスタンプをチェック（12時間以内か）
+    const now = Date.now();
+    const elapsed = now - parsed.timestamp;
+
+    if (elapsed > CACHE_DURATION_MS) {
+      // 12時間を超えている場合は無効
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
+    return parsed.data;
+  } catch {
+    // パースエラーなどで失敗した場合は無効
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+};
+
+/**
+ * localStorageにトレンド記事データを保存する
+ *
+ * @param {TrendingArticle[]} articles - 保存する記事データ
+ */
+const saveCachedArticles = (articles: TrendingArticle[]): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const data = {
+      data: articles,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error("Failed to save trending articles to localStorage:", error);
+  }
+};
+
 /**
  * Qiitaアイコンコンポーネント
  *
@@ -87,7 +150,7 @@ const formatDate = (dateString: string): string => {
  */
 export function TrendingArticles({ isLightBackground = false }: { isLightBackground?: boolean }): React.ReactElement {
   const [articles, setArticles] = useState<TrendingArticle[]>(articlesCache.data);
-  const [loading, setLoading] = useState(!articlesCache.data.length && articlesCache.loading);
+  const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -99,22 +162,33 @@ export function TrendingArticles({ isLightBackground = false }: { isLightBackgro
      * トレンド記事を取得する
      */
     const fetchArticles = async (): Promise<void> => {
-      // 既にキャッシュがある場合はそれを使用
+      // 既にメモリキャッシュがある場合はそれを使用
       if (articlesCache.data.length > 0) {
         setArticles(articlesCache.data);
         setLoading(false);
         return;
       }
 
+      // localStorageからキャッシュを確認
+      const cachedArticles = getCachedArticles();
+      if (cachedArticles && cachedArticles.length > 0) {
+        articlesCache.data = cachedArticles;
+        setArticles(cachedArticles);
+        setLoading(false);
+        return;
+      }
+
       // 既にfetch中の場合はそのPromiseを待つ
       if (articlesCache.promise) {
+        setLoading(true);
         try {
           const data = await articlesCache.promise;
           setArticles(data);
         } catch {
           // エラー時は何もしない
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
         return;
       }
 
@@ -134,6 +208,8 @@ export function TrendingArticles({ isLightBackground = false }: { isLightBackgro
             if (Array.isArray(data)) {
               articlesCache.data = data;
               setArticles(data);
+              // localStorageに保存
+              saveCachedArticles(data);
               return data;
             }
           }
@@ -144,12 +220,15 @@ export function TrendingArticles({ isLightBackground = false }: { isLightBackgro
         } finally {
           articlesCache.loading = false;
           articlesCache.promise = null;
-          setLoading(false);
         }
       })();
 
       articlesCache.promise = fetchPromise;
-      await fetchPromise;
+      try {
+        await fetchPromise;
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchArticles();
