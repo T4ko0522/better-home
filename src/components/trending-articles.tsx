@@ -29,6 +29,69 @@ const articlesCache: {
   promise: null,
 };
 
+const STORAGE_KEY = "trending-articles";
+const CACHE_DURATION_MS = 12 * 60 * 60 * 1000; // 12時間（ミリ秒）
+
+/**
+ * localStorageからトレンド記事データを取得する
+ *
+ * @returns {TrendingArticle[] | null} キャッシュされた記事データ、またはnull
+ */
+const getCachedArticles = (): TrendingArticle[] | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY);
+    if (!cached) {
+      return null;
+    }
+
+    const parsed = JSON.parse(cached) as {
+      data: TrendingArticle[];
+      timestamp: number;
+    };
+
+    // タイムスタンプをチェック（12時間以内か）
+    const now = Date.now();
+    const elapsed = now - parsed.timestamp;
+
+    if (elapsed > CACHE_DURATION_MS) {
+      // 12時間を超えている場合は無効
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
+    return parsed.data;
+  } catch {
+    // パースエラーなどで失敗した場合は無効
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+};
+
+/**
+ * localStorageにトレンド記事データを保存する
+ *
+ * @param {TrendingArticle[]} articles - 保存する記事データ
+ */
+const saveCachedArticles = (articles: TrendingArticle[]): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const data = {
+      data: articles,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error("Failed to save trending articles to localStorage:", error);
+  }
+};
+
 /**
  * Qiitaアイコンコンポーネント
  *
@@ -62,13 +125,32 @@ const ZennIcon = (): React.ReactElement => (
 );
 
 /**
+ * 日付文字列を「M月D日」形式にフォーマットする
+ *
+ * @param {string} dateString - 日付文字列
+ * @returns {string} フォーマットされた日付文字列
+ */
+const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}月${day}日`;
+  } catch {
+    return "";
+  }
+};
+
+/**
  * トレンド記事を表示するコンポーネント
  *
+ * @param {object} props - コンポーネントのプロップス
+ * @param {boolean} props.isLightBackground - 背景が明るいかどうか
  * @returns {React.ReactElement} トレンド記事コンポーネント
  */
-export function TrendingArticles(): React.ReactElement {
+export function TrendingArticles({ isLightBackground = false }: { isLightBackground?: boolean }): React.ReactElement {
   const [articles, setArticles] = useState<TrendingArticle[]>(articlesCache.data);
-  const [loading, setLoading] = useState(!articlesCache.data.length && articlesCache.loading);
+  const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -80,22 +162,33 @@ export function TrendingArticles(): React.ReactElement {
      * トレンド記事を取得する
      */
     const fetchArticles = async (): Promise<void> => {
-      // 既にキャッシュがある場合はそれを使用
+      // 既にメモリキャッシュがある場合はそれを使用
       if (articlesCache.data.length > 0) {
         setArticles(articlesCache.data);
         setLoading(false);
         return;
       }
 
+      // localStorageからキャッシュを確認
+      const cachedArticles = getCachedArticles();
+      if (cachedArticles && cachedArticles.length > 0) {
+        articlesCache.data = cachedArticles;
+        setArticles(cachedArticles);
+        setLoading(false);
+        return;
+      }
+
       // 既にfetch中の場合はそのPromiseを待つ
       if (articlesCache.promise) {
+        setLoading(true);
         try {
           const data = await articlesCache.promise;
           setArticles(data);
         } catch {
           // エラー時は何もしない
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
         return;
       }
 
@@ -115,6 +208,8 @@ export function TrendingArticles(): React.ReactElement {
             if (Array.isArray(data)) {
               articlesCache.data = data;
               setArticles(data);
+              // localStorageに保存
+              saveCachedArticles(data);
               return data;
             }
           }
@@ -125,12 +220,15 @@ export function TrendingArticles(): React.ReactElement {
         } finally {
           articlesCache.loading = false;
           articlesCache.promise = null;
-          setLoading(false);
         }
       })();
 
       articlesCache.promise = fetchPromise;
-      await fetchPromise;
+      try {
+        await fetchPromise;
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchArticles();
@@ -192,7 +290,9 @@ export function TrendingArticles(): React.ReactElement {
       >
         <h3 className="text-lg font-semibold text-foreground">トレンド記事</h3>
         {hasMore && (
-          <div className="flex items-center gap-1 text-muted-foreground">
+          <div className={`flex items-center gap-1 ${
+            isLightBackground ? "text-gray-600" : "text-white/80"
+          }`}>
             {expanded ? (
               <>
                 <span className="text-xs">折りたたむ</span>
@@ -220,9 +320,16 @@ export function TrendingArticles(): React.ReactElement {
               <div className="mt-0.5 shrink-0 text-foreground">
                 {article.source === "qiita" ? <QiitaIcon /> : <ZennIcon />}
               </div>
-              <h4 className="text-sm font-medium text-foreground group-hover:text-primary line-clamp-2 flex-1">
-                {article.title}
-              </h4>
+              <div className="flex-1 min-w-0">
+                {article.createdAt && (
+                  <p className="text-xs mb-1 text-white">
+                    {formatDate(article.createdAt)}
+                  </p>
+                )}
+                <h4 className="text-sm font-medium text-foreground group-hover:text-primary line-clamp-2">
+                  {article.title}
+                </h4>
+              </div>
               <ExternalLink className="size-4 shrink-0 text-muted-foreground mt-0.5" />
             </div>
             {article.tags.length > 0 && (
