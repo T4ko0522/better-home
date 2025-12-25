@@ -156,8 +156,10 @@ export function Calendar({ isMobile = false }: CalendarProps): React.ReactElemen
       
       const fetchPromise = (async (): Promise<Holidays> => {
         try {
+          // 拡張機能環境を検出
+          const isExtension = typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
           // デフォルト（Vercelデプロイ時）は相対パス、静的エクスポート時（.env.localにtrueを記述）は外部URLを使用
-          const useExternalApi = process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
+          const useExternalApi = isExtension || process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
           const response = useExternalApi
             ? await fetchHolidaysFromAPI(year.toString())
             : await fetch(`/api/holidays?year=${year}`);

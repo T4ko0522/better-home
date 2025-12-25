@@ -198,8 +198,10 @@ export function TrendingArticles({ isLightBackground = false }: { isLightBackgro
       
       const fetchPromise = (async (): Promise<TrendingArticle[]> => {
         try {
+          // 拡張機能環境を検出
+          const isExtension = typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
           // デフォルト（Vercelデプロイ時）は相対パス、静的エクスポート時（.env.localにtrueを記述）は外部URLを使用
-          const useExternalApi = process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
+          const useExternalApi = isExtension || process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
           const response = useExternalApi
             ? await fetchTrending()
             : await fetch("/api/trending");

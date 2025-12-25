@@ -262,8 +262,10 @@ export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
       
       const fetchPromise = (async (): Promise<WeatherData | null> => {
         try {
+          // 拡張機能環境を検出
+          const isExtension = typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
           // デフォルト（Vercelデプロイ時）は相対パス、静的エクスポート時（.env.localにtrueを記述）は外部URLを使用
-          const useExternalApi = process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
+          const useExternalApi = isExtension || process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
           
           // 位置情報を取得
           if (navigator.geolocation) {
@@ -306,7 +308,9 @@ export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
                     return;
                   }
                   // その他のエラーの場合はデフォルト（東京）で取得
-                  const response = useExternalApi
+                  const isExtension = typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
+                  const useExternalApiForError = isExtension || process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
+                  const response = useExternalApiForError
                     ? await fetchWeatherFromAPI()
                     : await fetch("/api/weather");
                   if (response.ok) {
@@ -333,7 +337,9 @@ export function Clock({ hideWeather = false }: ClockProps): React.ReactElement {
             });
           } else {
             // 位置情報APIが利用できない場合はデフォルト（東京）で取得
-            const response = useExternalApi
+            const isExtension = typeof window !== "undefined" && window.location.protocol === "chrome-extension:";
+            const useExternalApiForFallback = isExtension || process.env.NEXT_PUBLIC_USE_RELATIVE_API === "true";
+            const response = useExternalApiForFallback
               ? await fetchWeatherFromAPI()
               : await fetch("/api/weather");
             if (response.ok) {
