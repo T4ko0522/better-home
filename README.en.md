@@ -74,32 +74,6 @@ This project uses the following APIs:
 - **holidays-jp.github.io API**: Japanese Holiday Information
 - **Qiita API**: Trending Articles
 
-## 📁 Project Structure
-
-```
-src/
-├── app/
-│ ├── api/ # API Root
-│ │ ├── weather/ # Weather Information API
-│ │ ├── holidays/ # Holiday Information API
-│ │ └── trending/ # Trending Articles API
-│ ├── layout.tsx # Root Layout
-│ ├── page.tsx # Home Page
-│ └── globals.css # Global Styles
-├── components/ # React Components
-│ ├── calendar.tsx # Calendar Component
-│ ├── clock.tsx # Clock Component
-│ ├── trending-articles.tsx # Trending Articles Component
-│ └── ui/ # UI Components
-├── hooks/ # Custom Hooks
-│ ├── useAppSettings.ts # App Settings Management
-│ └── useBackgroundImages.ts # Background Image Management
-└── lib/ # Utilities
-├── indexeddb-utils.ts # IndexedDB Operations
-├── image-utils.ts # Image Processing
-└── utils.ts # General Utilities
-```
-
 ## 📝 License
 
 This project is released under the [Apache License 2.0](LICENSE).
