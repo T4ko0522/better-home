@@ -7,7 +7,7 @@ A modern and easy-to-use new tab page that combines a clock, weather, calendar, 
 </p>
 </div>
 
-![Better Tab Screenshot](assets/screen.png)
+![Better Tab Screenshot](assets/screen.gif)
 
 ## How to Use
 
