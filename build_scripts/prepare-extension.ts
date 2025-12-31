@@ -24,6 +24,10 @@ function copyDir(src: string, dest: string): void {
 
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
+    // screenshotファイルを除外
+    if (entry.name.toLowerCase().startsWith("screenshot")) {
+      continue;
+    }
     // Chrome拡張機能では_で始まるファイル/ディレクトリ名は使用不可
     // 先頭のすべての_を削除
     const destName = entry.name.replace(/^_+/, "");
