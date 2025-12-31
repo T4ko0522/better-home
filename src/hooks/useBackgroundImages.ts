@@ -13,6 +13,8 @@ export interface BackgroundImage {
   url: string;
   /** サムネイル画像のURL（動画の場合に使用） */
   thumbnail?: string;
+  /** 表示名（ファイル名またはURL） */
+  name?: string;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface UseBackgroundImagesReturn {
   /** 背景画像の設定 */
   settings: BackgroundSettings;
   /** 画像を追加する関数 */
-  addImage: (url: string, thumbnail?: string) => Promise<void>;
+  addImage: (url: string, thumbnail?: string, name?: string) => Promise<void>;
   /** 画像を削除する関数 */
   removeImage: (id: string) => Promise<void>;
   /** ランダムに画像を選択する関数 */
@@ -69,19 +71,23 @@ const LOCALSTORAGE_KEY_LAST_VIDEO_CHANGE = "last_video_change_time";
 const DEFAULT_BACKGROUND_IMAGES: BackgroundImage[] = [
   {
     id: "default-1",
-    url: "/screenshot.png",
+    url: "https://better-tab.vercel.app/screenshot.png",
+    name: "紅葉",
   },
   {
     id: "default-2",
-    url: "/screenshot1.png",
+    url: "https://better-tab.vercel.app/screenshot1.png",
+    name: "雪山",
   },
   {
     id: "default-3",
-    url: "/screenshot2.png",
+    url: "https://better-tab.vercel.app/screenshot2.png",
+    name: "向寒",
   },
   {
     id: "default-4",
-    url: "/screenshot3.png",
+    url: "https://better-tab.vercel.app/screenshot3.png",
+    name: "夜景",
   },
 ];
 
@@ -445,8 +451,9 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
    *
    * @param {string} url - 追加する画像のURL
    * @param {string} thumbnail - サムネイル画像のURL（オプション）
+   * @param {string} name - 表示名（ファイル名またはURL、オプション）
    */
-  const addImage = async (url: string, thumbnail?: string): Promise<void> => {
+  const addImage = async (url: string, thumbnail?: string, name?: string): Promise<void> => {
     // Data URLの場合は事前にBlob URLに変換してキャッシュを作成
     let finalUrl = url;
     if (url.startsWith("data:")) {
@@ -463,6 +470,7 @@ export function useBackgroundImages(): UseBackgroundImagesReturn {
       id: Date.now().toString(),
       url, // 元のData URLを保存（永続化のため）
       ...(thumbnail && { thumbnail }),
+      ...(name && { name }),
     };
     const updated = [...images, newImage];
     setImages(updated);

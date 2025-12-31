@@ -80,6 +80,20 @@ export const getDisplayUrl = (url: string): string => {
 };
 
 /**
+ * テキストを指定された長さで省略表示する
+ *
+ * @param {string} text - 表示するテキスト
+ * @param {number} maxLength - 最大文字数（デフォルト: 30）
+ * @returns {string} 省略されたテキスト
+ */
+export const truncateText = (text: string, maxLength: number = 30): string => {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.substring(0, maxLength)}...`;
+};
+
+/**
  * 画像の平均輝度を計算する
  *
  * @param {string} imageUrl - 画像のURL
