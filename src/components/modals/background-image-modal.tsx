@@ -83,7 +83,7 @@ export const BackgroundImageModal = ({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="bg-white/90 dark:bg-black/30 backdrop-blur-sm border border-border hover:bg-white dark:hover:bg-black/40">
           <ImagePlus className="size-4" />
-          背景画像
+          背景
         </Button>
       </DialogTrigger>
       <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
